@@ -1,9 +1,18 @@
 import os
+import platform
 from time import sleep
 from random import randint
 
+# Define the command to clear the terminal (depends on the os...)
+if platform.system() == 'Windows':
+	def clear_terminal():
+		os.system('cls')
+else:
+	def clear_terminal():
+		os.system('clear')
+
 def defineBoard():
-	os.system('clear')
+	clear_terminal()
 	print "Let's start by defining our game:"
 	heaps = raw_input("Enter number of heaps you want: ")
 	for x in range(1,int(heaps)+1):
@@ -13,7 +22,7 @@ def defineBoard():
 
 
 def printBoard(heap):
-	os.system('clear')
+	clear_terminal()
 	num = 0
 	for num,row in enumerate(heap):
 		print num+1,
@@ -62,35 +71,39 @@ def isItEnd():
 
 heap = []
 
-os.system('clear')
+def startGame():
+	global heap
+	heap = []
 
-print """
-  _   _ _____ __  __        _____          __  __ ______
- | \ | |_   _|  \/  |      / ____|   /\   |  \/  |  ____|
- |  \| | | | | \  / |     | |  __   /  \  | \  / | |__
- | . ` | | | | |\/| |     | | |_ | / /\ \ | |\/| |  __|
- | |\  |_| |_| |  | |     | |__| |/ ____ \| |  | | |____
- |_| \_|_____|_|  |_|      \_____/_/    \_|_|  |_|______|
+	clear_terminal()
 
-                                                         """
-sleep(2)
-os.system('clear')
-print """Nim is a mathematical game of strategy in which two players
-take turns removing objects from distinct heaps. On each turn, a player
-must remove at least one object, and may remove any number of objects
-provided they all come from the same heap. The one who can't make a move loses.
-source: wikipedia.com
+	print """
+	  _   _ _____ __  __        _____          __  __ ______
+	 | \ | |_   _|  \/  |      / ____|   /\   |  \/  |  ____|
+	 |  \| | | | | \  / |     | |  __   /  \  | \  / | |__
+	 | . ` | | | | |\/| |     | | |_ | / /\ \ | |\/| |  __|
+	 | |\  |_| |_| |  | |     | |__| |/ ____ \| |  | | |____
+	 |_| \_|_____|_|  |_|      \_____/_/    \_|_|  |_|______|
 
-"""
+															 """
+	sleep(2)
+	clear_terminal()
+	print """Nim is a mathematical game of strategy in which two players
+	take turns removing objects from distinct heaps. On each turn, a player
+	must remove at least one object, and may remove any number of objects
+	provided they all come from the same heap. The one who can't make a move loses.
+	source: wikipedia.com
 
-raw_input("Press Enter to continue...")
+	"""
 
-defineBoard()
+	raw_input("Press Enter to continue...")
 
-printBoard(heap)
+	defineBoard()
 
-while True:
-	userMove()
-	if isItEnd(): break
-	computerMove()
-	if isItEnd(): break
+	printBoard(heap)
+
+	while True:
+		userMove()
+		if isItEnd(): break
+		computerMove()
+		if isItEnd(): break
