@@ -17,3 +17,5 @@ Website of Richard S. Sutton (RL book & courses): http://incompleteideas.net/sut
 An Introduction to RL (Online textbook): http://incompleteideas.net/sutton/book/the-book.html
 
 Courses on RL (Sutton): http://incompleteideas.net/sutton/609%20dropbox/
+
+Reinforcement Learning for Board Games: The Temporal Difference Algorithm: http://www.gm.fh-koeln.de/ciopwebpub/Kone15c.d/TR-TDgame_EN.pdf
