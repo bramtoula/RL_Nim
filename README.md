@@ -11,6 +11,9 @@ I have started working on it
 
 ## Some sources:
 Demo of RL using Deep Q-Learning: http://cs.stanford.edu/people/karpathy/convnetjs/demo/rldemo.html
+
 Website of Richard S. Sutton (RL book & courses): http://incompleteideas.net/sutton/
+
 An Introduction to RL (Online textbook): http://incompleteideas.net/sutton/book/the-book.html
+
 Courses on RL (Sutton): http://incompleteideas.net/sutton/609%20dropbox/
