@@ -31,12 +31,23 @@ heap = []
 heaps = int(0)
 heapMax = 0
 
+#Parameters to modify - also look at DQN construction
 steps_done = 0
 episode_durations = []
-num_episodes = 1000
-pauseTime = 0.01
+num_episodes = 10000
+pauseTime = 0.0
+epsilon_fail = 1.0;
 
-#-----------------GAME--------------------#
+
+BATCH_SIZE = 128
+GAMMA = 0.999
+EPS_START = 1.0
+EPS_END = 0.25
+EPS_DECAY = 10
+REPLAY_SIZE = 10000
+USE_CUDA = torch.cuda.is_available()
+
+#-------------GAME--------------------#
 def defineBoard():
     global heaps
     global heapMax
@@ -92,7 +103,6 @@ def userMove():
         userMove()
     if isItEnd(): print "YOU WIN"
 
-epsilon_fail = 0.5;
 def computerMove(disp):
     global heap
     sleep(pauseTime)
@@ -107,30 +117,6 @@ def computerMove(disp):
 def isItEnd():
     return all(z == 0 for z in heap)
 
-os.system('clear')
-
-print """
-    _   _ _____ __  __        _____          __  __ ______
-    | \ | |_   _|  \/  |      / ____|   /\   |  \/  |  ____|
-    |  \| | | | | \  / |     | |  __   /  \  | \  / | |__
-    | . ` | | | | |\/| |     | | |_ | / /\ \ | |\/| |  __|
-    | |\  |_| |_| |  | |     | |__| |/ ____ \| |  | | |____
-    |_| \_|_____|_|  |_|      \_____/_/    \_|_|  |_|______|
-    
-    """
-sleep(2)
-os.system('clear')
-print """Nim is a mathematical game of strategy in which two players
-    take turns removing objects from distinct heaps. On each turn, a player
-    must remove at least one object, and may remove any number of objects
-    provided they all come from the same heap. The one who can't make a move loses.
-    source: wikipedia.com
-    
-    """
-
-raw_input("Press Enter to continue...")
-defineBoard()
-printBoard(heap)
 
 #while True:
 #	userMove()
@@ -166,8 +152,8 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
-        self.linear1 = nn.Linear(int(heaps), 16)
-        self.linear2 = nn.Linear(16, 32)
+        self.linear1 = nn.Linear(int(heaps), 32)
+        self.linear2 = nn.Linear(32, 32)
         self.linear3 = nn.Linear(32, int(heaps*heapMax))
     
     def forward(self, x):
@@ -177,25 +163,6 @@ class DQN(nn.Module):
         x = F.relu(self.linear3(x))
         return x
 
-
-############
-# Training #
-############
-
-BATCH_SIZE = 128
-GAMMA = 0.999
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 200
-REPLAY_SIZE = 10000
-USE_CUDA = torch.cuda.is_available()
-
-model = DQN()
-memory = ReplayMemory(REPLAY_SIZE)
-optimizer = optim.RMSprop(model.parameters())
-
-if USE_CUDA:
-    model.cuda()
 
 
 class Variable(autograd.Variable):
@@ -232,7 +199,7 @@ def select_action():
     if sample > eps_threshold:
         return getMaxValidAction()
     else:
-    #choose random valid heap and num
+        #choose random valid heap and num
         nonZeroHeaps = []
         for x in range(heaps):
             if (heap[x] > 0):
@@ -258,12 +225,12 @@ def optimize_model():
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken
     state_action_values = model(state_batch).gather(1, action_batch)
-
+    
     # Compute a mask of non-final states and concatenate the batch elements
     non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
     if USE_CUDA:
         non_final_mask = non_final_mask.cuda()
-
+    
     # Compute V(s_{t+1}) for all next states.
     next_state_values = Variable(torch.zeros(BATCH_SIZE))
     next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
@@ -272,7 +239,7 @@ def optimize_model():
     
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
-    print loss
+    #print loss
     # Optimize the model
     optimizer.zero_grad()
     loss.backward()
@@ -280,31 +247,36 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-######################################################################
-#
-# Below, you can find the main training loop. At the beginning we reset
-# the environment and initialize the ``state`` variable. Then, we sample
-# an action, execute it, observe the next screen and the reward (always
-# 1), and optimize our model once. When the episode ends (our model
-# fails), we restart the loop.
-#
-# Below, `num_episodes` is set small. You should download
-# the notebook and run lot more epsiodes.
+############
+# MAIN CODE #
+############
 
+defineBoard()
+printBoard(heap)
+
+model = DQN()
+memory = ReplayMemory(REPLAY_SIZE)
+optimizer = optim.RMSprop(model.parameters())
+
+if USE_CUDA:
+    model.cuda()
+
+
+print "TRAINING..."
 actions_pushed = 0
 for i_episode in range(num_episodes):
-    print i_episode
+    #print i_episode
     global steps_done
     global heap
     steps_done = 0
     resetBoard()
-    printBoard(heap)
+    #printBoard(heap)
     for t in count():
         action = select_action()
         
         current_heap = heap[:]
         
-        print "RL Agent Turn"
+        #print "RL Agent Turn"
         sleep(pauseTime)
         
         #Update heap
@@ -312,24 +284,24 @@ for i_episode in range(num_episodes):
         amount = (action%heapMax)+1
         heap[bin] -= amount
         #Display board- opyional
-        printBoard(heap)
+        #printBoard(heap)
         
         done = isItEnd()
         reward = torch.Tensor([0])
         if done:
             #lost
             reward = torch.Tensor([-1])
-            print "Agent Won"
+            #print "Agent Won"
         else:
-            print "AI Turn"
+            #print "AI Turn"
             #now ai move
-            computerMove(1);
+            computerMove(0);
             #Get game state and reward
             done = isItEnd();
             #won
             if done:
                 reward = torch.Tensor([1])
-                print "Agent Lost"
+            #print "Agent Lost"
     
         next_heap = torch.FloatTensor(heap[:])
         if done:
@@ -343,12 +315,14 @@ for i_episode in range(num_episodes):
             episode_durations.append(t + 1)
             break
 
-test = 100
+
+print "TESTING..."
+test = 1000
 win_count = 0
 lose_count = 0
 for i in range(test):
     resetBoard()
-    printBoard(heap)
+    #printBoard(heap)
     for t in count():
         action = select_action()
         current_heap = heap[:]
