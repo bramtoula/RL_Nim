@@ -34,7 +34,7 @@ heapMax = 0
 #Parameters to modify - also look at DQN construction
 steps_done = 0
 episode_durations = []
-num_episodes = 10000
+num_episodes = 100000
 pauseTime = 0.0
 epsilon_fail = 1.0;
 
@@ -87,7 +87,7 @@ def winingHeap():
 def userMove():
     row, num = raw_input("Enter row and num of matches you want to take separated with space ex.(1 2):  ").split()
     row, num = int(row)-1,int(num)
-    
+
     try:
         if row <= -1: raise
         if num>0 and num<=heap[row]:
@@ -130,22 +130,22 @@ Transition = namedtuple('Transition',
 
 
 class ReplayMemory(object):
-    
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
         self.position = 0
-    
+
     def push(self, *args):
         """Saves a transition."""
         if len(self.memory) < self.capacity:
             self.memory.append(None)
         self.memory[self.position] = Transition(*args)
         self.position = (self.position + 1) % self.capacity
-    
+
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
-    
+
     def __len__(self):
         return len(self.memory)
 
@@ -155,7 +155,7 @@ class DQN(nn.Module):
         self.linear1 = nn.Linear(int(heaps), 32)
         self.linear2 = nn.Linear(32, 32)
         self.linear3 = nn.Linear(32, int(heaps*heapMax))
-    
+
     def forward(self, x):
         x = x.view(len(x)/int(heaps), int(heaps))
         x = F.relu(self.linear1(x))
@@ -166,7 +166,7 @@ class DQN(nn.Module):
 
 
 class Variable(autograd.Variable):
-    
+
     def __init__(self, data, *args, **kwargs):
         if USE_CUDA:
             data = data.cuda()
@@ -177,7 +177,7 @@ def getMaxValidAction():
     QSA_for_actions = model(Variable(torch.FloatTensor(heap), volatile=True)).data.cpu()
     curMax = -sys.maxint
     curActionIndex = -1
-    
+
     index = 0
     for qsa in QSA_for_actions[0]:
         bin = index/heapMax
@@ -225,18 +225,18 @@ def optimize_model():
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken
     state_action_values = model(state_batch).gather(1, action_batch)
-    
+
     # Compute a mask of non-final states and concatenate the batch elements
     non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
     if USE_CUDA:
         non_final_mask = non_final_mask.cuda()
-    
+
     # Compute V(s_{t+1}) for all next states.
     next_state_values = Variable(torch.zeros(BATCH_SIZE))
     next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
     next_state_values.volatile = False
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-    
+
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
     #print loss
@@ -273,19 +273,19 @@ for i_episode in range(num_episodes):
     #printBoard(heap)
     for t in count():
         action = select_action()
-        
+
         current_heap = heap[:]
-        
+
         #print "RL Agent Turn"
         sleep(pauseTime)
-        
+
         #Update heap
         bin = action/heapMax
         amount = (action%heapMax)+1
         heap[bin] -= amount
         #Display board- opyional
         #printBoard(heap)
-        
+
         done = isItEnd()
         reward = torch.Tensor([0])
         if done:
@@ -302,7 +302,7 @@ for i_episode in range(num_episodes):
             if done:
                 reward = torch.Tensor([1])
             #print "Agent Lost"
-    
+
         next_heap = torch.FloatTensor(heap[:])
         if done:
             next_heap = None
@@ -343,4 +343,3 @@ for i in range(test):
 
 print 'Win Percentage: '
 print win_count/float(test)
-
