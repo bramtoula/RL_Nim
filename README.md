@@ -19,3 +19,5 @@ An Introduction to RL (Online textbook): http://incompleteideas.net/sutton/book/
 Courses on RL (Sutton): http://incompleteideas.net/sutton/609%20dropbox/
 
 Reinforcement Learning for Board Games: The Temporal Difference Algorithm: http://www.gm.fh-koeln.de/ciopwebpub/Kone15c.d/TR-TDgame_EN.pdf
+http://www.diva-portal.org/smash/get/diva2:814832/FULLTEXT01.pdf
+http://www.csc.kth.se/utbildning/kth/kurser/DD143X/dkand11/Group6Lars/erikjarleberg.pdf
