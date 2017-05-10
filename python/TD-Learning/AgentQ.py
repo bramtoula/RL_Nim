@@ -1,7 +1,7 @@
 import random as rnd
 import numpy as np
 
-class Agent():
+class AgentQ():
     def __init__(self, SA, stepSize, discount, epsilon):
         self.ngames = 0
         self.won = 0

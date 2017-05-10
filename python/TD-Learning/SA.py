@@ -1,4 +1,14 @@
 class SA():
+    def __eliminateDuplicate(self, input):
+        """
+        Eliminate duplicate in a list.
+        """
+        output = []
+        for x in input:
+            if x not in output:
+                output.append(x)
+        return output
+
     def __init__(self, board):
         d = []
         for i in range(0,board[0]+1):
@@ -7,7 +17,7 @@ class SA():
                     for l in range(0, board[3] + 1):
                         d.append(sorted([i,j,k,l]))
 
-        d = __eliminateDuplicate(d)
+        d = self.__eliminateDuplicate(d)
         states = {i:d[i] for i in range(len(d))}
         stringstates = [''.join(str(states[j])) for j in states]
 
@@ -30,10 +40,3 @@ class SA():
             actions.append(temp)
 
         self.actions = actions
-
-def __eliminateDuplicate(input):
-  output = []
-  for x in input:
-    if x not in output:
-      output.append(x)
-  return output

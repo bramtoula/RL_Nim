@@ -3,7 +3,7 @@ import random as rnd
 
 from SA4 import SA
 import pickle
-from AgentQ import Agent
+from AgentQ import AgentQ
 from AgentSarsa import AgentSARSA
 import matplotlib.pyplot as plt
 
@@ -206,7 +206,7 @@ stac2 = SA(board)
 alpha2 = 0.1
 gamma2 = 1
 epsilon2 = 0.8
-a2 = Agent(stac2, alpha2, gamma2, epsilon2)
+a2 = AgentQ(stac2, alpha2, gamma2, epsilon2)
 
 
 n = 25000 # number of training games

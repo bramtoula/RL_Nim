@@ -2,7 +2,7 @@ import numpy as np
 import random as rnd
 
 from SA import SA
-from AgentQ import Agent
+from AgentQ import AgentQ
 
 from AgentSARSA import AgentSARSA
 import matplotlib.pyplot as plt
@@ -141,7 +141,7 @@ def smartMove(board):
 
 
 board = [1,3,5,7]
-end = [0,0,0,0]
+end = [0,0,0,0] 
 
 stac = SA(board)    # initialise states and actions
 
@@ -158,7 +158,7 @@ for y in range(len(a)):
             discount = gam[w]
 
             
-            a1 = Agent(stac, stepSize, discount, epsilon) # initialise agent
+            a1 = AgentQ(stac, stepSize, discount, epsilon) # initialise agent
             n = 20000
             rnd.seed(0)
             ########## Train A1 ########
