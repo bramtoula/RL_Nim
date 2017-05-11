@@ -3,9 +3,6 @@ import numpy as np
 
 class AgentSARSA():
     def __init__(self, SA, stepSize, discount, epsilon):
-        self.ngames = 0
-        self.won = 0
-
         self.state = 0
         self.action = 0
 
@@ -13,7 +10,7 @@ class AgentSARSA():
         self.states = SA.states
         self.stateindex = SA.stateindex
 
-        self.Q = np.zeros([len(SA.states),len(SA.actions[len(SA.states)-1])])
+        self.Q = np.zeros([len(SA.states),len(SA.actions)])
         self.stepSize = stepSize
         self.discount = discount
         self.epsilon = epsilon
@@ -32,7 +29,7 @@ class AgentSARSA():
         r = rnd.random()
 
         if r > self.epsilon: # for epsilon-greedy policy
-            a = rnd.randrange(len(self.actions[s]))
+            a = rnd.randrange(len(self.actions))
         else:       # choose best possible action in this state
             q = list(self.Q[s,:])
             m = max(q)
@@ -51,8 +48,7 @@ class AgentSARSA():
             return a
 
     def changeBoard(self, board, a):
-		s = self.readBoard(board)
-		action = self.actions[s][a]
+		action = self.actions[a]
 		
 		heap = action[0]
 		amount = action[1]
@@ -74,22 +70,28 @@ class AgentSARSA():
 		
         return board
 
-    def winUpdate(self, s, a, R):
-        self.won += 1
+    def winUpdate(self, R=1):
+        s = self.state
+        a = self.action
+        
         self.Q[s][a] += self.stepSize*(R - self.Q[s][a])
 
-    def update(self, s, a, sp, R):
+    def updateQ(self, board, R=0):
+        s = self.state
+        a = self.action
+        
+        sp = self.readBoard(board)
         ap = self.chooseAction(sp)
         self.Q[s][a] += self.stepSize*(R + self.discount*self.Q[sp][ap] - self.Q[s][a])
 		### NEED TO RETURN ap FOR NEXT STEP ###
 
-    def loseUpdate(self, R):
+    def loseUpdate(self, R=-1):
         s = self.state
         a = self.action
         self.Q[s][a] += self.stepSize*(R - self.Q[s][a])
 
     def isValid(self, s, a):
-        action = self.actions[s][a]
+        action = self.actions[a]
         heap = action[0]
         amount = action[1]
         if (self.states[s][heap] - amount) < 0:
@@ -100,10 +102,10 @@ class AgentSARSA():
 
 ############### Optimal Policy  ##############
 
-    def policyMove(self, board):
+    def greedyMove(self, board):
                 
         s = self.readBoard(board)
-        a = self.policyAction(s)
+        a = self.greedyAction(s)
 
         board = self.changeBoard(board, a) 
 
@@ -112,11 +114,9 @@ class AgentSARSA():
 
 
 
-    def policyAction(self, s, to_avoid=[]):
+    def greedyAction(self, s):
         # choose best possible action in this state
         q = list(self.Q[s,:])
-        for i in to_avoid:
-            del q[i]
         m = max(q)
         if q.count(m) > 1: # if more than 1 action w/ max value
             bestAction = []
@@ -128,7 +128,7 @@ class AgentSARSA():
         else:
             a = np.argmax(self.Q[s,:])
         if self.isValid(s, a) == False:
-            return self.policyAction(s, to_avoid.append(a))
+            return self.greedyAction(s)
         else:
             return a
 

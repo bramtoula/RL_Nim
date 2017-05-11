@@ -1,116 +1,201 @@
 ########## Initialization ##########
 
-#import numpy as np
+import numpy as np
 import random as rnd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from SA import SA
 
 from AgentQ import AgentQ
 from AgentSARSA import AgentSARSA
+from Opponent import Opponent
 
 # Variables initialization
 # RL
 stepSize = 0.1
 discount = 1 # no discounting
-epsilon = 0.1
+epsilon = 0.1 # for the e-greedy policy
 # Nim
-board_ini = [5,5,5,5]
+board_ini = sorted([5,5,5,5])
 sarsa_flag = False
-runMax = 1E4
-repetMax = 1
+runMax = int(3E4)
+repetMax = int(1)
+
 
 ########## Reinforcement Learning ##########
-
-board = board_ini
+# Board and agent
+board = list(board_ini)
+board_end = [0] * len(board_ini)
 if sarsa_flag:
     agent = AgentSARSA(SA(board), stepSize, discount, epsilon)
 else:
     agent = AgentQ(SA(board), stepSize, discount, epsilon)
-episode = []
-wins = []
-optmoves = []
-for repet in range(0,repetMax):
-    for run in range(0,runMax):
-        if run % 100 == 0:
-            print("repet : {0}/{1}\n".format(repet, repetMax))
-            print("run   : {0}/{1}\n".format(run, runMax))
-    
-        isFirst = rnd.randint(0,1)
-        if isFirst == True: 
-            while True: # a1 goes first
-                if play1(board,end,a1) == False:
-                    break
-            board = board_ini
-            
-        if isFirst == False:
-            c = 0
-            while True: # comp goes first
-                if play2(board,end,a1,c) == False:
-                    break
-                c += 1
-            board = board_ini
-            
-        if j % interval  == 0: # Increase Epsilon over time
-                    epslimit = 10000
-                    a1.epsilon += interval*(1-epsilon)/epslimit
-                    
-                    x = 250 # Performance : play 100 games each 1000 episodes
-                    a1.ngames = 0
-                    a1.won = 0
-                    a1.optimalMovesPossible = 0
-                    a1.optimalMovesMade = 0
-                    started = 0
-                    for i in range(0,x):
-                        r = rnd.randrange(2)
-                        if r == 0:
-                            started += 1
-                            while True: # Agent first
-                                if policyPlay1(board, end, a1) == False:
-                                    break
-                            board = [1,3,5,7]
-                        if r == 1:
-                            while True: # Computer first
-                                if policyPlay2(board, end, a1) == False:
-                                    break
-                            board = [1,3,5,7]
-                    
-                    episode.append(j)
-                    wins.append(a1.won/(x-started))
-                    optmoves.append(a1.optimalMovesMade/a1.optimalMovesPossible)
-            
-def play1(board,end,Agent):
-    """Agent vs Smart"""
-    Agent.move(board)
-    if board == end:
-##        print(s,a)
-        Agent.winUpdate(Agent.state,Agent.action,1)
-        return False
-    
-    smartMove(board)
-    if board == end:
-        Agent.loseUpdate(-1)
-        return False
-    s = Agent.state
-    a = Agent.action
-    sp = Agent.readBoard(board)
-    Agent.update(s,a,sp,0)
+oppLearning = Opponent(SA(board), policy="optimal", epsilon=0.1)
+oppOptimal = Opponent(SA(board), policy="optimal")
 
-def play2(board, end , Agent,c):
-    """ Smart vs Agent
-Computer first """
-    
-    smartMove(board)
-    if board == end:
-        Agent.loseUpdate(-1)
-        return False
-    if c != 0:
-        s = Agent.state
-        a = Agent.action
-        sp = Agent.readBoard(board)
-        Agent.update(s,a,sp,0)
+# Learning curves parameters
+learning_win = []
+greedy_win = []
+optimalMoves = []
+
+# Learning
+for repet in range(repetMax):
+    for run in range(runMax):
+        if (run+1) % 100 == 0:
+            print("repet : {0}/{1}".format(repet+1, repetMax))
+            print("run   : {0}/{1}\n".format(run+1, runMax))
         
-    Agent.move(board)
-    if board == end:
-        Agent.winUpdate(Agent.state,Agent.action,1)
-        return False
+        board = list(board_ini)
+        
+        agentIsFirst = rnd.randint(0,1)
+        if agentIsFirst == False:
+            oppLearning.move(board)
+            if board == board_end:
+                learning_win.append(0)
+                continue
+        
+        while True:
+            agent.move(board)
+            if board == board_end:
+                agent.winUpdate()
+                learning_win.append(1)
+                break
+            
+            oppLearning.move(board)
+            if board == board_end:
+                agent.loseUpdate()
+                learning_win.append(0)
+                break
+                
+            agent.updateQ(board)
+        
+        ### Test the agent every 100 runs on 100 more runs
+        if (run+1) % 100 == 0:
+            optMovePossible = 0.
+            optMoveMade = 0.
+            
+            for _ in range(100):
+                board = list(board_ini)
+                    
+                agentIsFirst = rnd.randint(0,1)
+                if agentIsFirst == False:
+                    oppOptimal.move(board)
+                    if board == board_end:
+                        greedy_win.append(0)
+                        continue
+                
+                while True:
+                    before = 0
+                    for i in range(len(board)):
+                        before ^= board[i]
+                    if before != 0:
+                        optMovePossible += 1
+                        
+                    agent.greedyMove(board)
+                   
+                    after = 0
+                    for i in range(len(board)):
+                        after ^= board[i]
+                    if after == 0:
+                        optMoveMade += 1
+                    
+                    if board == board_end:
+                        greedy_win.append(1)
+                        break
+                    
+                    oppOptimal.move(board)
+                    if board == board_end:
+                        greedy_win.append(0)
+                        break
+            optimalMoves.append(optMoveMade/optMovePossible)
+
+
+
+########## Learning curves ##########
+
+# Window averaging
+half_window = 1000
+learning_win_ave = []
+greedy_win_ave = []
+
+for i in range(len(learning_win)):
+    startIndex = i - half_window
+    if startIndex < 0:
+        startIndex = 0
+        
+    endIndex = i + half_window + 1
+    if endIndex > len(learning_win):
+        endIndex = len(learning_win)
+    
+    learning_win_ave.append(float(sum(learning_win[startIndex:endIndex])) / (len(learning_win[startIndex:endIndex])))
+
+for i in range(len(greedy_win)):
+    startIndex = i - half_window
+    if startIndex < 0:
+        startIndex = 0
+        
+    endIndex = i + half_window + 1
+    if endIndex > len(learning_win):
+        endIndex = len(learning_win)
+    
+    greedy_win_ave.append(float(sum(greedy_win[startIndex:endIndex])) / (len(greedy_win[startIndex:endIndex])))
+
+plt.plot(learning_win_ave)
+plt.plot(greedy_win_ave)
+plt.legend(["Learning", "Greedy"])
+plt.show() 
+
+plt.plot(np.arange(1, runMax+1, 100), optimalMoves)
+plt.show() 
+    
+
+
+########## Test of the agent after learning ##########
+trials = 1000
+wins = 0.
+optMove = 0
+optDone = 0
+for i in range(trials):
+    board = list(board_ini)
+        
+    agentIsFirst = rnd.randint(0,1)
+    if agentIsFirst == False:
+        oppOptimal.move(board)
+        if board == board_end:
+            continue
+    
+    while True:
+        before = 0
+        for i in range(len(board)):
+            before ^= board[i]
+        if before != 0:
+            optMove += 1
+            
+        agent.greedyMove(board)
+       
+        after = 0
+        for i in range(len(board)):
+            after ^= board[i]
+        if after == 0:
+            optDone += 1
+        
+        if board == board_end:
+            wins += 1.
+            break
+        
+        oppOptimal.move(board)
+        if board == board_end:
+            break
+
+print "---"
+print "wins = {0}%\noptMove = {1}\noptDone = {2}".format(wins/trials*100, optMove, optDone)
+
+
+
+
+
+
+
+
+
+

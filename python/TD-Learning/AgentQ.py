@@ -3,9 +3,6 @@ import numpy as np
 
 class AgentQ():
     def __init__(self, SA, stepSize, discount, epsilon):
-        self.ngames = 0
-        self.won = 0
-
         self.state = 0
         self.action = 0
         
@@ -13,7 +10,7 @@ class AgentQ():
         self.states = SA.states
         self.stateindex = SA.stateindex
 
-        self.Q = np.zeros([len(SA.states),len(SA.actions[len(SA.states)-1])])
+        self.Q = np.zeros([len(SA.states),len(SA.actions)])
         self.stepSize = stepSize
         self.discount = discount
         self.epsilon = epsilon
@@ -32,7 +29,7 @@ class AgentQ():
         r = rnd.random()
 
         if r > self.epsilon: # for epsilon-greedy policy
-            a = rnd.randrange(len(self.actions[s]))
+            a = rnd.randrange(len(self.actions))
         else:       # choose best possible action in this state
             q = list(self.Q[s,:])
             m = max(q)
@@ -51,8 +48,7 @@ class AgentQ():
             return a
 
     def changeBoard(self, board, a):
-        s = self.readBoard(board)
-        action = self.actions[s][a]
+        action = self.actions[a]
         
         heap = action[0]
         amount = action[1]
@@ -74,10 +70,8 @@ class AgentQ():
         
         return board
 
-    def optimalAction(self, sp, to_avoid=[]):
+    def optimalAction(self, sp):
         q = list(self.Q[sp,:])
-        for i in to_avoid:
-            del q[i]
         m = max(q)
         if q.count(m) > 1: # if more than 1 action w/ max value
             bestAction = []
@@ -90,26 +84,32 @@ class AgentQ():
             ap = np.argmax(self.Q[sp,:])
         
         if self.isValid(sp, ap) == False:
-            return self.optimalAction(sp, to_avoid.append(ap))
+            return self.optimalAction(sp)
         else:
             return ap
         
 
-    def winUpdate(self, s, a, R):
-        self.won += 1
+    def winUpdate(self, R=1):
+        s = self.state
+        a = self.action
+        
         self.Q[s][a] += self.stepSize*(R - self.Q[s][a])
 
-    def update(self, s, a, sp, R):
+    def updateQ(self, board, R=0):
+        s = self.state
+        a = self.action
+        
+        sp = self.readBoard(board)
         ap = self.optimalAction(sp)
         self.Q[s][a] += self.stepSize*(R + self.discount*self.Q[sp][ap] - self.Q[s][a])
 
-    def loseUpdate(self, R):
+    def loseUpdate(self, R=-1):
         s = self.state
         a = self.action
         self.Q[s][a] += self.stepSize*(R - self.Q[s][a])
     
     def isValid(self, s, a):
-        action = self.actions[s][a]
+        action = self.actions[a]
         heap = action[0]
         amount = action[1]
         if (self.states[s][heap] - amount) < 0:
@@ -120,19 +120,17 @@ class AgentQ():
 
 ############### Optimal Policy  ##############
 
-    def policyMove(self, board):
+    def greedyMove(self, board):
                 
         s = self.readBoard(board)
-        a = self.policyAction(s)
+        a = self.greedyAction(s)
         board = self.changeBoard(board, a) 
         return board
 
 
-    def policyAction(self, sp, to_avoid=[]):
+    def greedyAction(self, sp):
         # choose best possible action in this state
         q = list(self.Q[sp,:])
-        for i in to_avoid:
-            del q[i]
         m = max(q)
         if q.count(m) > 1: # if more than 1 action w/ max value
             bestAction = []
@@ -145,7 +143,7 @@ class AgentQ():
             ap = np.argmax(self.Q[sp,:])
         
         if self.isValid(sp, ap) == False:
-            return self.policyAction(sp, to_avoid.append(ap))
+            return self.greedyAction(sp)
         else:
             return ap
 

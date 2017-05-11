@@ -8,16 +8,27 @@ class SA():
             if x not in output:
                 output.append(x)
         return output
-
+    
     def __init__(self, board):
         d = []
-        for i in range(0,board[0]+1):
-            for j in range(0,board[1]+1):
-                for k in range(0,board[2]+1):
-                    for l in range(0, board[3] + 1):
-                        d.append(sorted([i,j,k,l]))
-
+        d1 = [0] * len(board)
+        while True:
+            d.append(list(d1))
+            
+            if d[-1] == board:
+                break
+            
+            d1[-1] += 1
+            for m in range(len(board)):
+                if d1[-1-m] > board[-1-m]:
+                    d1[-1-m] = 0
+                    d1[-2-m] += 1
+        
+        for i in range(len(d)):
+            d[i].sort()
+        d.sort()
         d = self.__eliminateDuplicate(d)
+        
         states = {i:d[i] for i in range(len(d))}
         stringstates = [''.join(str(states[j])) for j in states]
 
@@ -27,16 +38,8 @@ class SA():
         self.stateindex = stateindex
         
         actions = []
-        for i in range(len(states)):
-            temp = []
-            for j in range(states[i][0]):
-                temp.append([0,j+1])
-            for j in range(states[i][1]):
-                temp.append([1,j+1])
-            for j in range(states[i][2]):
-                temp.append([2,j+1])
-            for j in range(states[i][3]):
-                temp.append([3,j+1])
-            actions.append(temp)
+        for i in range(len(board)):
+            for j in range(board[i]):
+                actions.append([i,j+1])
 
         self.actions = actions
