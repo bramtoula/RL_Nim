@@ -59,7 +59,7 @@ class AgentSARSA():
         return board
 
     def move(self, board):
-        
+
         s = self.readBoard(board)
         a = self.chooseAction(s)
 ##        print(s)
@@ -67,7 +67,7 @@ class AgentSARSA():
         self.state = s
         self.action = a
 
-        board = self.changeBoard(board, a) 
+        board = self.changeBoard(board, a)
         sp = self.readBoard(board)  # get s' (new state)
         return board
 
@@ -97,14 +97,14 @@ class AgentSARSA():
 ############### Optimal Policy  ##############
 
     def policyMove(self, board):
-                
+
         s = self.readBoard(board)
         a = self.policyAction(s)
 
-        board = self.changeBoard(board, a) 
+        board = self.changeBoard(board, a)
 
         return board
-        
+
 
 
 
@@ -126,10 +126,3 @@ class AgentSARSA():
         else:
             return a
         return
-
-    
-        
-        
-
-
-        
