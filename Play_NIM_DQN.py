@@ -111,6 +111,7 @@ class DQN(nn.Module):
         inputLength = len(x)
         newX = []
         x_py = x.data.numpy();
+        x_py = np.sort(x_py)
         for h in range(len(x_py)):
             intval = int(x_py[h])
             binaryRep = [int(digit) for digit in bin(intval)[2:]]

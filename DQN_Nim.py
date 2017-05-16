@@ -119,6 +119,7 @@ class DQN(nn.Module):
         inputLength = len(x)
         newX = []
         x_py = x.data.numpy();
+        x_py = np.sort(x_py)
         for h in range(len(x_py)):
             intval = int(x_py[h])
             binaryRep = [int(digit) for digit in bin(intval)[2:]]
@@ -282,8 +283,10 @@ for i_episode in range(1, num_episodes+1):
         
         done = isItEnd()
         reward = torch.Tensor([0])
-        #if nimSum() == 0:
-            #reward = torch.Tensor([5])
+        if nimSum() == 0:
+            reward = torch.Tensor([5])
+        else
+            reward = torch.Tensr([-5])
         if done:
             #lost
             reward = torch.Tensor([10])
