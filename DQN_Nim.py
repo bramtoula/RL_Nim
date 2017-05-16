@@ -79,22 +79,22 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 class ReplayMemory(object):
-    
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
         self.position = 0
-    
+
     def push(self, *args):
         """Saves a transition."""
         if len(self.memory) < self.capacity:
             self.memory.append(None)
         self.memory[self.position] = Transition(*args)
         self.position = (self.position + 1) % self.capacity
-    
+
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
-    
+
     def __len__(self):
         return len(self.memory)
 
@@ -113,6 +113,7 @@ class DQN(nn.Module):
         #self.linear5 = nn.Linear(15, 12, True)
         #self.linear6 = nn.Linear(12, int(heaps*heapMax), True)
     
+
     def forward(self, x):
         #convert heaps to binart=y
         inputLength = len(x)
@@ -136,7 +137,7 @@ class DQN(nn.Module):
 
 
 class Variable(autograd.Variable):
-    
+
     def __init__(self, data, *args, **kwargs):
         if USE_CUDA:
             data = data.cuda()
@@ -147,7 +148,7 @@ def getMaxValidAction():
     QSA_for_actions = model(Variable(torch.FloatTensor(heap), volatile=True)).data.cpu()
     curMax = -sys.maxint
     curActionIndex = -1
-    
+
     index = 0
     for qsa in QSA_for_actions[0]:
         binNum = index/heapMax
@@ -192,17 +193,17 @@ def optimize_model():
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken
     state_action_values = model(state_batch).gather(1, action_batch)
-    
+
     # Compute a mask of non-final states and concatenate the batch elements
     non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None, batch.next_state)))
     if USE_CUDA:
         non_final_mask = non_final_mask.cuda()
-    
+
     # Compute V(s_{t+1}) for all next states.
     next_state_values = Variable(torch.zeros(BATCH_SIZE))
     next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-    
+
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
     #print loss
@@ -279,8 +280,6 @@ for i_episode in range(1, num_episodes+1):
     resetBoard()
     for t in count():
         action = select_action()
-        current_heap = heap[:]
-        
         #Update heap
         binNum = action/heapMax
         amount = (action%heapMax)+1
