@@ -33,7 +33,7 @@ maxBits = len(bin(heapMax))
 epsilon_rand = 1.0;
 
 #Network learning parameters, also look at DQN construction
-num_episodes = 50000
+num_episodes = 100000
 BATCH_SIZE = 128
 REPLAY_SIZE = 10000
 #learning rate?
@@ -44,7 +44,7 @@ USE_CUDA = torch.cuda.is_available()
 GAMMA = 0.999
 EPS_START = 1.0
 EPS_END = 0.05
-EPS_DECAY = 25000
+EPS_DECAY = 10000
 
 #-------------GAME IMPLEMENTATION--------------------#
 
@@ -53,7 +53,7 @@ def resetBoard():
     global done
     heap = []
     for x in range(1,int(heaps)+1):
-        heap.append(5)#randint(1,5))
+        heap.append(x)#randint(1,5))
     done = 0
 
 def nimSum():
@@ -101,9 +101,9 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
-        self.linear1 = nn.Linear(int(heaps)*maxBits, 32, True)
+        self.linear1 = nn.Linear(int(heaps), 32, True)
         self.linear2 = nn.Linear(32, 32, True)
-        self.linear3 = nn.Linear(32, 32, True)
+        #self.linear3 = nn.Linear(32, 32, True)
         self.linear4= nn.Linear(32, int(heaps*heapMax), True)
     
         #self.linear1 = nn.Linear(int(heaps)*maxBits, 30, True)
@@ -117,20 +117,21 @@ class DQN(nn.Module):
     def forward(self, x):
         #convert heaps to binart=y
         inputLength = len(x)
-        newX = []
-        x_py = x.data.numpy();
-        x_py = np.sort(x_py)
-        for h in range(len(x_py)):
-            intval = int(x_py[h])
-            binaryRep = [int(digit) for digit in bin(intval)[2:]]
-            binaryRep = np.lib.pad(binaryRep, (maxBits-len(binaryRep),0), 'constant', constant_values=(0,0))
-            newX = newX + list(binaryRep)
-        x = Variable(torch.FloatTensor(newX))
-        x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
-        x.cuda()
+        #newX = []
+        #x_py = x.data.numpy();
+        #x_py = np.sort(x_py)
+        #for h in range(len(x_py)):
+        #    intval = int(x_py[h])
+        #    binaryRep = [int(digit) for digit in bin(intval)[2:]]
+        #    binaryRep = np.lib.pad(binaryRep, (maxBits-len(binaryRep),0), 'constant', constant_values=(0,0))
+        #    newX = newX + list(binaryRep)
+        #x = Variable(torch.FloatTensor(newX))
+        #x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
+        
+        x = x.view(int(inputLength/heaps), int(heaps))
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
-        x = F.relu(self.linear3(x))
+        #x = F.relu(self.linear3(x))
         x = F.relu(self.linear4(x))
         return x
 
@@ -249,11 +250,7 @@ def test():
                     break
             next_heap = heap[:]
 
-    print 'Win Percentage: '
-    print win_count/float(num_eps)
-    
-    print 'OptimalMove Percentage: '
-    print nimsum_moves/float(total_moves)
+    return win_count/float(num_eps), nimsum_moves/float(total_moves)
 
 
 #################
@@ -308,8 +305,8 @@ for i_episode in range(1, num_episodes+1):
         optimize_model()
         if done:
             if (i_episode % 1000 == 0):
-                print ["Epsiode", i_episode]
-                test()
+                winP, opMoveP = test()
+                print ["Epsiode", i_episode, winP, opMoveP]
             break
 
 
