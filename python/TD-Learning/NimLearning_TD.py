@@ -1,6 +1,6 @@
 ########## Initialization ##########
 
-import numpy as np
+#↨import numpy as np
 import random as rnd
 import matplotlib.pyplot as plt
 
@@ -18,8 +18,22 @@ epsilon = 0.1 # for the e-greedy policy
 # Nim
 board_ini = sorted([5,5,5,5])
 sarsa_flag = False
-runMax = int(3E4)
+runMax = int(4E4)
 repetMax = int(1)
+
+# Function initialization
+def init_board():
+    """
+    Return a random board based on board_ini
+    """
+    board = list(board_ini)
+    for i in range(len(board_ini)):
+        board[i] = rnd.randint(0,board_ini[i])
+    board.sort()
+    
+    if board[-1] == 0:
+        return init_board()
+    return board
 
 
 ########## Reinforcement Learning ##########
@@ -37,6 +51,7 @@ oppOptimal = Opponent(SA(board), policy="optimal")
 learning_win = []
 greedy_win = []
 optimalMoves = []
+optimalMoves_runNb = []
 
 # Learning
 for repet in range(repetMax):
@@ -45,7 +60,7 @@ for repet in range(repetMax):
             print("repet : {0}/{1}".format(repet+1, repetMax))
             print("run   : {0}/{1}\n".format(run+1, runMax))
         
-        board = list(board_ini)
+        board = init_board()
         
         agentIsFirst = rnd.randint(0,1)
         if agentIsFirst == False:
@@ -75,7 +90,7 @@ for repet in range(repetMax):
             optMoveMade = 0.
             
             for _ in range(100):
-                board = list(board_ini)
+                board = init_board()
                     
                 agentIsFirst = rnd.randint(0,1)
                 if agentIsFirst == False:
@@ -107,7 +122,8 @@ for repet in range(repetMax):
                     if board == board_end:
                         greedy_win.append(0)
                         break
-            optimalMoves.append(optMoveMade/optMovePossible)
+            optimalMoves.append(optMoveMade/optMovePossible*100)
+            optimalMoves_runNb.append(run)
 
 
 
@@ -143,29 +159,35 @@ for i in range(len(greedy_win)):
 plt.plot(learning_win_ave)
 plt.plot(greedy_win_ave)
 plt.legend(["Learning", "Greedy"])
+plt.title("Learning curves")
 plt.show() 
 
-plt.plot(np.arange(1, runMax+1, 100), optimalMoves)
+plt.plot(optimalMoves_runNb, optimalMoves)
+plt.title("Percentage of optimal moves done")
 plt.show() 
     
 
 
 ########## Test of the agent after learning ##########
-trials = 1000
+trials = 2000
 wins = 0
 winStart = 0
 optMove = 0
 optDone = 0
 for i in range(trials):
-    board = list(board_ini)
+    board = init_board()
         
     agentIsFirst = rnd.randint(0,1)
     if agentIsFirst == False:
-        winStart += 1
         oppOptimal.move(board)
         if board == board_end:
             continue
     
+    before = 0
+    for i in range(len(board)):
+        before ^= board[i]
+    if before != 0:
+        winStart += 1
     while True:
         before = 0
         for i in range(len(board)):
