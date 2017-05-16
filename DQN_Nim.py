@@ -33,7 +33,7 @@ maxBits = len(bin(heapMax))
 epsilon_rand = 1.0;
 
 #Network learning parameters, also look at DQN construction
-num_episodes = 100000
+num_episodes = 50000
 BATCH_SIZE = 128
 REPLAY_SIZE = 10000
 #learning rate?
@@ -44,7 +44,7 @@ USE_CUDA = torch.cuda.is_available()
 GAMMA = 0.999
 EPS_START = 1.0
 EPS_END = 0.05
-EPS_DECAY = 10
+EPS_DECAY = 25000
 
 #-------------GAME IMPLEMENTATION--------------------#
 
@@ -53,7 +53,7 @@ def resetBoard():
     global done
     heap = []
     for x in range(1,int(heaps)+1):
-        heap.append(x)#randint(1,5))
+        heap.append(5)#randint(1,5))
     done = 0
 
 def nimSum():
@@ -103,7 +103,7 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
         self.linear1 = nn.Linear(int(heaps)*maxBits, 32, True)
         self.linear2 = nn.Linear(32, 32, True)
-        #self.linear3 = nn.Linear(32, 32, True)
+        self.linear3 = nn.Linear(32, 32, True)
         self.linear4= nn.Linear(32, int(heaps*heapMax), True)
     
         #self.linear1 = nn.Linear(int(heaps)*maxBits, 30, True)
@@ -128,10 +128,8 @@ class DQN(nn.Module):
         x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
-        #x = F.relu(self.linear3(x))
+        x = F.relu(self.linear3(x))
         x = F.relu(self.linear4(x))
-        #x = F.relu(self.linear5(x))
-        #x = F.relu(self.linear6(x))
         return x
 
 
@@ -161,11 +159,9 @@ def getMaxValidAction():
 
 #Actions are defined as bin*heapMax+numPickedUp
 def select_action():
-    global steps_done
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
-    steps_done += 1
     #exploration vs exploitation
     if sample > eps_threshold:
         return getMaxValidAction()
@@ -274,11 +270,10 @@ if USE_CUDA:
 print "TRAINING..."
 actions_pushed = 0
 for i_episode in range(1, num_episodes+1):
-    global steps_done
-    global heap
-    steps_done = 0
+    steps_done+=1
     resetBoard()
     for t in count():
+        current_heap = heap[:]
         action = select_action()
         #Update heap
         binNum = action/heapMax
