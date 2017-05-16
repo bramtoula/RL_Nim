@@ -127,6 +127,7 @@ class DQN(nn.Module):
             newX = newX + list(binaryRep)
         x = Variable(torch.FloatTensor(newX))
         x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
+        x.cuda()
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
         x = F.relu(self.linear3(x))
@@ -285,8 +286,8 @@ for i_episode in range(1, num_episodes+1):
         reward = torch.Tensor([0])
         if nimSum() == 0:
             reward = torch.Tensor([5])
-        else
-            reward = torch.Tensr([-5])
+        else:
+            reward = torch.Tensor([-5])
         if done:
             #lost
             reward = torch.Tensor([10])
