@@ -7,7 +7,6 @@ from random import randint
 
 
 import argparse
-import gym
 import numpy as np
 from itertools import count
 
@@ -17,66 +16,45 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.autograd as autograd
 from torch.autograd import Variable
-import matplotlib
-import matplotlib.pyplot as plt
 
 from collections import namedtuple
 from itertools import count
 from copy import deepcopy
-from PIL import Image
 
 #---------------------Initialize Game-----------------#
-originalHeap = []
+#Game parameters and state globals
 heap = []
-heaps = int(0)
-heapMax = 0
-
-#Parameters to modify - also look at DQN construction
+heaps = 4
+heapMax = 5
 steps_done = 0
-episode_durations = []
+maxBits = len(bin(heapMax))
+
+#How random the AI we train against is
+epsilon_rand = 1.0;
+
+#Network learning parameters, also look at DQN construction
 num_episodes = 100000
-pauseTime = 0.0
-epsilon_fail = 1.0;
-
-
 BATCH_SIZE = 128
-GAMMA = 0.999
-EPS_START = 1.0
-EPS_END = 0.25
-EPS_DECAY = 10
 REPLAY_SIZE = 10000
+#learning rate?
+
 USE_CUDA = torch.cuda.is_available()
 
-#-------------GAME--------------------#
-def defineBoard():
-    global heaps
-    global heapMax
-    global originalHeap
-    os.system('clear')
-    print "Let's start by defining our game:"
-    heaps = raw_input("Enter number of heaps you want: ")
-    heaps = int(heaps)
-    for x in range(1,int(heaps)+1):
-        num = raw_input("Enter number of matches on heap %d: " % x)
-        heap.append(int(num))
-        heapMax = max(heapMax, int(num))
-    originalHeap = list(heap)
-    print
+#Reinforcement Learning parameters
+GAMMA = 0.999
+EPS_START = 1.0
+EPS_END = 0.05
+EPS_DECAY = 10
+
+#-------------GAME IMPLEMENTATION--------------------#
 
 def resetBoard():
     global heap
     global done
-    heap = originalHeap[:]
+    heap = []
+    for x in range(1,int(heaps)+1):
+        heap.append(x)#randint(1,5))
     done = 0
-
-def printBoard(heap):
-    os.system('clear')
-    num = 0
-    for num,row in enumerate(heap):
-        print num+1,
-        for match in range(0,row):
-            print " |",
-        print
 
 def nimSum():
     return reduce(lambda x,y: x^y, heap)
@@ -84,50 +62,21 @@ def nimSum():
 def winingHeap():
     return [x^nimSum() < x for x in heap].index(True)
 
-def userMove():
-    row, num = raw_input("Enter row and num of matches you want to take separated with space ex.(1 2):  ").split()
-    row, num = int(row)-1,int(num)
-
-    try:
-        if row <= -1: raise
-        if num>0 and num<=heap[row]:
-            heap[row]-=num
-            printBoard(heap)
-        else:
-            printBoard(heap)
-            print "WRONG NUMBER TRY AGAIN"
-            userMove()
-    except:
-        printBoard(heap)
-        print "WRONG ROW TRY AGAIN"
-        userMove()
-    if isItEnd(): print "YOU WIN"
-
-def computerMove(disp):
+def computerMove():
     global heap
-    sleep(pauseTime)
     #removes randomly from largest heap
-    if nimSum()==0 or random.randrange(1000)/1000.0 < epsilon_fail:
+    if nimSum()==0 or random.randrange(1000)/1000.0 < epsilon_rand:
         heap[heap.index(max(heap))]-=randint(1,max(heap))
     else: heap[winingHeap()]^=nimSum()
-    if disp:
-        printBoard(heap)
 
 
 def isItEnd():
     return all(z == 0 for z in heap)
 
 
-#while True:
-#	userMove()
-#	if isItEnd(): break
-#	computerMove()
-#	if isItEnd(): break
-
-#---------------LEARNING-----------------#
+#---------------DQN and Replay Memory Methods-----------------#
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
-
 
 class ReplayMemory(object):
 
@@ -152,15 +101,37 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
-        self.linear1 = nn.Linear(int(heaps), 32)
-        self.linear2 = nn.Linear(32, 32)
-        self.linear3 = nn.Linear(32, int(heaps*heapMax))
+        self.linear1 = nn.Linear(int(heaps)*maxBits, 32, True)
+        self.linear2 = nn.Linear(32, 32, True)
+        #self.linear3 = nn.Linear(32, 32, True)
+        self.linear4= nn.Linear(32, int(heaps*heapMax), True)
+    
+        #self.linear1 = nn.Linear(int(heaps)*maxBits, 30, True)
+        #self.linear2 = nn.Linear(30, 18, True)
+        #self.linear3 = nn.Linear(18, 21, True)
+        #self.linear4 = nn.Linear(21, 15, True)
+        #self.linear5 = nn.Linear(15, 12, True)
+        #self.linear6 = nn.Linear(12, int(heaps*heapMax), True)
+    
 
     def forward(self, x):
-        x = x.view(len(x)/int(heaps), int(heaps))
+        #convert heaps to binart=y
+        inputLength = len(x)
+        newX = []
+        x_py = x.data.numpy();
+        for h in range(len(x_py)):
+            intval = int(x_py[h])
+            binaryRep = [int(digit) for digit in bin(intval)[2:]]
+            binaryRep = np.lib.pad(binaryRep, (maxBits-len(binaryRep),0), 'constant', constant_values=(0,0))
+            newX = newX + list(binaryRep)
+        x = Variable(torch.FloatTensor(newX))
+        x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
-        x = F.relu(self.linear3(x))
+        #x = F.relu(self.linear3(x))
+        x = F.relu(self.linear4(x))
+        #x = F.relu(self.linear5(x))
+        #x = F.relu(self.linear6(x))
         return x
 
 
@@ -180,9 +151,9 @@ def getMaxValidAction():
 
     index = 0
     for qsa in QSA_for_actions[0]:
-        bin = index/heapMax
+        binNum = index/heapMax
         numPick = (index%heapMax)+1
-        if qsa > curMax and heap[bin] >= numPick:
+        if qsa > curMax and heap[binNum] >= numPick:
             curActionIndex = index
             curMax = qsa
         index += 1
@@ -208,9 +179,6 @@ def select_action():
         randNum = random.randrange(heap[randBin])
         return randBin*heapMax+randNum
 
-#################
-# Training loop #
-#################
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -234,7 +202,6 @@ def optimize_model():
     # Compute V(s_{t+1}) for all next states.
     next_state_values = Variable(torch.zeros(BATCH_SIZE))
     next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
-    next_state_values.volatile = False
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     # Compute Huber loss
@@ -247,12 +214,55 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-############
-# MAIN CODE #
-############
 
-defineBoard()
-printBoard(heap)
+
+##################
+# Testing method #
+##################
+def test():
+    num_eps = 10000
+    win_count = 0
+    lose_count = 0
+    
+    total_moves = 0
+    nimsum_moves = 0
+    for i in range(num_eps):
+        resetBoard()
+        for t in count():
+            action = select_action()
+            current_heap = heap[:]
+            binNum = action/heapMax
+            amount = (action%heapMax)+1
+            heap[binNum] -= amount
+            
+            total_moves += 1
+            if nimSum() == 0:
+                nimsum_moves += 1
+            
+            done = isItEnd()
+            if done:
+                win_count += 1
+                break
+            else:
+                computerMove();
+                done = isItEnd();
+                if done:
+                    lose_count += 1
+                    break
+            next_heap = heap[:]
+
+    print 'Win Percentage: '
+    print win_count/float(num_eps)
+    
+    print 'OptimalMove Percentage: '
+    print nimsum_moves/float(total_moves)
+
+
+#################
+# Training loop #
+#################
+
+resetBoard()
 
 model = DQN()
 memory = ReplayMemory(REPLAY_SIZE)
@@ -261,47 +271,34 @@ optimizer = optim.RMSprop(model.parameters())
 if USE_CUDA:
     model.cuda()
 
-
 print "TRAINING..."
 actions_pushed = 0
-for i_episode in range(num_episodes):
-    #print i_episode
+for i_episode in range(1, num_episodes+1):
     global steps_done
     global heap
     steps_done = 0
     resetBoard()
-    #printBoard(heap)
     for t in count():
         action = select_action()
-
-        current_heap = heap[:]
-
-        #print "RL Agent Turn"
-        sleep(pauseTime)
-
         #Update heap
-        bin = action/heapMax
+        binNum = action/heapMax
         amount = (action%heapMax)+1
-        heap[bin] -= amount
-        #Display board- opyional
-        #printBoard(heap)
-
+        heap[binNum] -= amount
+        
         done = isItEnd()
         reward = torch.Tensor([0])
+        #if nimSum() == 0:
+            #reward = torch.Tensor([5])
         if done:
             #lost
-            reward = torch.Tensor([-1])
-            #print "Agent Won"
+            reward = torch.Tensor([10])
         else:
-            #print "AI Turn"
             #now ai move
-            computerMove(0);
-            #Get game state and reward
+            computerMove();
             done = isItEnd();
             #won
             if done:
-                reward = torch.Tensor([1])
-            #print "Agent Lost"
+                reward = torch.Tensor([-10])
 
         next_heap = torch.FloatTensor(heap[:])
         if done:
@@ -311,35 +308,10 @@ for i_episode in range(num_episodes):
         # Perform one step of the optimization (on the target network)
         optimize_model()
         if done:
-            sleep(pauseTime)
-            episode_durations.append(t + 1)
+            if (i_episode % 1000 == 0):
+                print ["Epsiode", i_episode]
+                test()
             break
 
 
-print "TESTING..."
-test = 1000
-win_count = 0
-lose_count = 0
-for i in range(test):
-    resetBoard()
-    #printBoard(heap)
-    for t in count():
-        action = select_action()
-        current_heap = heap[:]
-        bin = action/heapMax
-        amount = (action%heapMax)+1
-        heap[bin] -= amount
-        done = isItEnd()
-        if done:
-            win_count += 1
-            break
-        else:
-            computerMove(0);
-            done = isItEnd();
-            if done:
-                lose_count += 1
-                break
-        next_heap = heap[:]
 
-print 'Win Percentage: '
-print win_count/float(test)
