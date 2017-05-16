@@ -30,7 +30,7 @@ if sarsa_flag:
     agent = AgentSARSA(SA(board), stepSize, discount, epsilon)
 else:
     agent = AgentQ(SA(board), stepSize, discount, epsilon)
-oppLearning = Opponent(SA(board), policy="optimal", epsilon=0.1)
+oppLearning = Opponent(SA(board), policy="e-optimal", epsilon=0.1)
 oppOptimal = Opponent(SA(board), policy="optimal")
 
 # Learning curves parameters
@@ -152,7 +152,8 @@ plt.show()
 
 ########## Test of the agent after learning ##########
 trials = 1000
-wins = 0.
+wins = 0
+winStart = 0
 optMove = 0
 optDone = 0
 for i in range(trials):
@@ -160,6 +161,7 @@ for i in range(trials):
         
     agentIsFirst = rnd.randint(0,1)
     if agentIsFirst == False:
+        winStart += 1
         oppOptimal.move(board)
         if board == board_end:
             continue
@@ -180,7 +182,7 @@ for i in range(trials):
             optDone += 1
         
         if board == board_end:
-            wins += 1.
+            wins += 1
             break
         
         oppOptimal.move(board)
@@ -188,7 +190,8 @@ for i in range(trials):
             break
 
 print "---"
-print "wins = {0}%\noptMove = {1}\noptDone = {2}".format(wins/trials*100, optMove, optDone)
+print "wins = {}/{} = {:.2f}%\noptDone = {}\noptMove = {}\nopt = {:.2f}%".format(wins, winStart, float(wins)/float(winStart)*100, \
+              optDone, optMove, float(optDone)/float(optMove)*100)
 
 
 
