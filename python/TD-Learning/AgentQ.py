@@ -28,7 +28,7 @@ class AgentQ():
         """ chooses action according to action policy """
         r = rnd.random()
 
-        if r > self.epsilon: # for epsilon-greedy policy
+        if r < self.epsilon: # for epsilon-greedy policy
             a = rnd.randrange(len(self.actions))
         else:       # choose best possible action in this state
             q = list(self.Q[s,:])

@@ -12,10 +12,10 @@ from Opponent import Opponent
 
 # Variables initialization
 # RL
-stepSize = [i for i in np.linspace(0.01,1,5)] # alpha
+stepSize = [i for i in np.linspace(0,1,11)] # alpha
 discount = 1 # no discounting (gamma)
-epsilon =  [i for i in np.linspace(0,1,5)] # for the e-greedy policy
-opp_epsilon = [i for i in np.linspace(0,1,5)] # for the e-optimal opponent
+epsilon =  [i for i in np.linspace(0,1,11)] # for the e-greedy policy
+opp_epsilon = [i for i in np.linspace(0,1,4)] # for the e-optimal opponent
 # Nim
 board_ini = sorted([5,5,5,5])
 runMax = int(1E4)
@@ -121,11 +121,13 @@ for i in range(len(opp_epsilon)):
                vmin=0., vmax=1., interpolation='none', cmap='hot')
     plt.colorbar()
     plt.xlabel("Step size (alpha)"); plt.ylabel("Epsilon (for the learning policy)")
-    plt.title("Opponent: optimal at "+str((1-opp_epsilon[i])*100.)+"%")
+    plt.title("Opponent: optimal at {:.1f}%".format((1.-opp_epsilon[i])*100.))
     plt.show()
 
+index_best = np.unravel_index(np.argmax(optMoveFound_gridSearch), optMoveFound_gridSearch.shape)
 
-
-
-
+print "The optimal parameters are found to be:"
+print "step size = {}".format(stepSize[index_best[0]])
+print "epsilon = {}".format(epsilon[index_best[1]])
+print "opp_epsilon = {}".format(opp_epsilon[index_best[2]])
 

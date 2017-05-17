@@ -12,9 +12,9 @@ from Opponent import Opponent
 
 # Variables initialization
 # RL
-stepSize = 0.9 # alpha
+stepSize = 1 # alpha
 discount = 1 # no discounting (gamma)
-epsilon = 0.3 # for the e-greedy policy
+epsilon = 0.8 # for the e-greedy policy
 # Nim
 board_ini = sorted([5,5,5,5])
 runMax = int(3E4)
