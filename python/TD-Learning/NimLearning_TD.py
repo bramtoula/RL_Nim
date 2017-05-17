@@ -8,17 +8,15 @@ from IPython.display import clear_output
 from SA import SA
 
 from AgentQ import AgentQ
-from AgentSARSA import AgentSARSA
 from Opponent import Opponent
 
 # Variables initialization
 # RL
-stepSize = 0.5 # alpha
+stepSize = 0.9 # alpha
 discount = 1 # no discounting (gamma)
-epsilon = 0.5 # for the e-greedy policy
+epsilon = 0.3 # for the e-greedy policy
 # Nim
 board_ini = sorted([5,5,5,5])
-sarsa_flag = False
 runMax = int(3E4)
 
 # Function initialization
@@ -39,11 +37,8 @@ def init_board():
 # Board and agent
 board = list(board_ini)
 board_end = [0] * len(board_ini)
-if sarsa_flag:
-    agent = AgentSARSA(SA(board), stepSize, discount, epsilon)
-else:
-    agent = AgentQ(SA(board), stepSize, discount, epsilon)
-oppLearning = Opponent(SA(board), policy="optimal", epsilon=0.1)
+agent = AgentQ(SA(board), stepSize, discount, epsilon)
+oppLearning = Opponent(SA(board), policy="e-optimal", epsilon=0.)
 oppOptimal = Opponent(SA(board), policy="optimal")
 
 # Learning curves parameters
@@ -51,12 +46,14 @@ learning_win = []
 greedy_win = []
 optimalMoves = []
 optimalMoves_runNb = []
-optMoveFound_list = []
+optMoveFound_Recall = []
+optMoveFound_Precision = []
+optMoveFound_F = []
 optMoveFound_runNb = []
 
 # Learning
 for run in range(runMax):
-    if (run+1) % 100 == 0:
+    if (run+1) % 1000 == 0:
         clear_output()
         print("run   : {0}/{1}\n".format(run+1, runMax))
     
@@ -128,8 +125,9 @@ for run in range(runMax):
         optimalMoves.append(optMoveMade/optMovePossible*100)
         optimalMoves_runNb.append(run)
         
-        optMoveNb = 0.
-        optMoveFound = 0.
+        optMove_P = 0.
+        optMove_TP = 0.
+        optMove_FP = 0.
         for s in agent.states:
             board = list(agent.states[s])
             for heap in range(len(board)):
@@ -141,12 +139,25 @@ for run in range(runMax):
                     for i in range(len(temp_board)):
                         nimSum ^= temp_board[i]
                     
+                    
+                    a = agent.actions.index([heap,action])
                     if nimSum == 0:
-                        optMoveNb += 1.
-                        a = agent.actions.index([heap,action])
+                        optMove_P += 1.
                         if agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
-                            optMoveFound += 1.
-        optMoveFound_list.append(optMoveFound/optMoveNb*100)
+                            optMove_TP += 1.
+                    elif agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                        optMove_FP += 1.
+        
+        optMoveFound_Recall.append(optMove_TP/optMove_P)
+        if optMove_TP+optMove_FP == 0:
+            optMoveFound_Precision.append(0.)
+        else:
+            optMoveFound_Precision.append(optMove_TP/(optMove_TP+optMove_FP))
+        if optMoveFound_Precision[-1]+optMoveFound_Recall[-1] == 0:
+            optMoveFound_F.append(0.)
+        else:
+            optMoveFound_F.append(2*optMoveFound_Precision[-1]*optMoveFound_Recall[-1] / \
+                              (optMoveFound_Precision[-1]+optMoveFound_Recall[-1]))
         optMoveFound_runNb.append(run)
 
 
@@ -185,10 +196,10 @@ plt.xlabel("Run"); plt.ylabel("%")
 plt.axis([0, runMax, 0, 105]); plt.grid(True)
 plt.show() 
 
-plt.plot(optMoveFound_runNb, optMoveFound_list)
-plt.title("Rate of optimal moves found")
-plt.xlabel("Run"); plt.ylabel("%")
-plt.axis([0, runMax, 0, 105]); plt.grid(True)
+plt.plot(optMoveFound_runNb, optMoveFound_F)
+plt.title("F-measure")
+plt.xlabel("Run"); plt.ylabel("F-score")
+plt.axis([0, runMax, 0, 1.05]); plt.grid(True)
 plt.show()     
 
 
@@ -238,9 +249,9 @@ for i in range(trials):
 print "Win rate = {}/{} = {:.2f}%\n\nOptimal moves rate = {}/{} = {:.2f}%\n".format(wins, winStart, float(wins)/float(winStart)*100, \
               optDone, optMove, float(optDone)/float(optMove)*100)
 
-optMoveNb = 0.
-optMoveFound = 0.
-
+optMove_P = 0.
+optMove_TP = 0.
+optMove_FP = 0.
 for s in agent.states:
     board = list(agent.states[s])
     for heap in range(len(board)):
@@ -252,14 +263,29 @@ for s in agent.states:
             for i in range(len(temp_board)):
                 nimSum ^= temp_board[i]
             
+            
+            a = agent.actions.index([heap,action])
             if nimSum == 0:
-                optMoveNb += 1.
-                a = agent.actions.index([heap,action])
+                optMove_P += 1.
                 if agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
-                    optMoveFound += 1.
-            
-            
-print "Optimal moves found = {:.2f}%".format(optMoveFound/optMoveNb*100)
+                    optMove_TP += 1.
+            elif agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                optMove_FP += 1.
+
+optMoveFound_Recall = optMove_TP/optMove_P
+if optMove_TP+optMove_FP == 0.:
+    optMoveFound_Precision = 0.
+else:
+    optMoveFound_Precision = optMove_TP/(optMove_TP+optMove_FP)
+if optMoveFound_Precision+optMoveFound_Recall == 0:
+    optMoveFound_F = 0.
+else:
+    optMoveFound_F = 2*optMoveFound_Precision*optMoveFound_Recall / \
+                      (optMoveFound_Precision+optMoveFound_Recall)
+                
+print "Recall = {:.3f}".format(optMoveFound_Recall)
+print "Precision = {:.3f}".format(optMoveFound_Precision)
+print "F-measure = {:.3f}".format(optMoveFound_F)
 
 
 
