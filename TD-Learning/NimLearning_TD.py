@@ -1,27 +1,25 @@
 ########## Initialization ##########
-
-#import numpy as np
+# import general librairies
 from time import sleep
 import random as rnd
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
-
+# personal librairies
 from SA import SA
-
 from AgentQ import AgentQ
 from Opponent import Opponent
 
 # Variables initialization
 # RL
-discount = 1 # no discounting (gamma)
-stepSize = 1 # alpha - learning rate
-epsilon = 1 # for the e-greedy policy
-opp_epsilon = 0. # fraction of random for the opp
+discount = 1 # no discounting (=gamma)
+stepSize = 1 # alpha , the learning rate
+epsilon = 1 # for the epsilon-greedy policy
+opp_epsilon = 0. # fraction of randomness for the opponent
 # Nim
-board_ini = sorted([5,5,5,5])
-runMax = int(3E4)
+board_ini = sorted([5,5,5,5]) # Biggest board for learning Nim
+runMax = int(3E4) # Number of runs for the learning
 
-# Function initialization
+# Functions initialization
 def init_board():
     """
     Return a random board based on board_ini
@@ -43,7 +41,7 @@ agent = AgentQ(SA(board), stepSize, discount, epsilon)
 oppLearning = Opponent(SA(board), policy="e-optimal", epsilon=opp_epsilon)
 oppOptimal = Opponent(SA(board), policy="optimal")
 
-# Learning curves parameters
+# Learning curves lists
 learning_win = []
 greedy_win = []
 optimalMoves = []
@@ -61,13 +59,15 @@ for run in range(runMax):
     
     board = init_board()
     
+    # randomly choose the first player
     agentIsFirst = rnd.randint(0,1)
     if agentIsFirst == False:
         oppLearning.move(board)
         if board == board_end:
-            learning_win.append(0)
+            learning_win.append(-1)
             continue
     
+    # move until the end of the current game
     while True:
         agent.move(board)
         if board == board_end:
@@ -78,17 +78,19 @@ for run in range(runMax):
         oppLearning.move(board)
         if board == board_end:
             agent.loseUpdate()
-            learning_win.append(0)
+            learning_win.append(-1)
             break
             
         agent.updateQ(board)
     
     ### Test the agent every 100 runs on 100 more runs
+    # Using greedy policy
     if (run+1) % 100 == 0:
         optMovePossible = 0.
         optMoveMade = 0.
         wins = 0.
         for _ in range(100):
+            # the agent should always start in a winning position
             board = init_board()
             before = 0
             for i in range(len(board)):
@@ -127,6 +129,9 @@ for run in range(runMax):
         optimalMoves.append(optMoveMade/optMovePossible*100)
         optimalMoves_runNb.append(run)
         
+        # Compute current F-Score
+        # For each possible actions see if it's optimal and check if the agent
+        # considers it as optimal
         optMove_P = 0.
         optMove_TP = 0.
         optMove_FP = 0.
@@ -165,8 +170,8 @@ for run in range(runMax):
 
 ########## Learning curves ##########
 
-# Window averaging
-half_window = 1000
+# Window averaging of the learning curve
+half_window = 500
 learning_win_ave = []
 
 for i in range(len(learning_win)):
@@ -179,25 +184,28 @@ for i in range(len(learning_win)):
         endIndex = len(learning_win)
     
     learning_win_ave.append(float(sum(learning_win[startIndex:endIndex])) / (len(learning_win[startIndex:endIndex])))
-
+# Learning curve
 plt.plot(learning_win_ave)
 plt.title("Learning curve")
 plt.xlabel("Run"); plt.ylabel("Reward")
-plt.axis([0, runMax, 0, 1.05]); plt.grid(True)
+plt.axis([0, runMax, -1.05, 1.05]); plt.grid(True)
 plt.show()
 
+# Winning rate (after greedization)
 plt.plot(optimalMoves_runNb, greedy_win)
-plt.title("Win rate")
-plt.xlabel("Run"); plt.ylabel("%")
+plt.title("Winning rate")
+plt.xlabel("Run"); plt.ylabel("Games won [%]")
 plt.axis([0, runMax, 0, 105]); plt.grid(True)
 plt.show()
 
+# Optimal moves rate (after greedization)
 plt.plot(optimalMoves_runNb, optimalMoves)
-plt.title("Optimal move rate")
-plt.xlabel("Run"); plt.ylabel("%")
+plt.title("Optimal moves rate")
+plt.xlabel("Run"); plt.ylabel("Optimal move done [%]")
 plt.axis([0, runMax, 0, 105]); plt.grid(True)
 plt.show() 
 
+# F-measure (after greedization)
 plt.plot(optMoveFound_runNb, optMoveFound_F)
 plt.title("F-measure")
 plt.xlabel("Run"); plt.ylabel("F-score")
@@ -206,7 +214,7 @@ plt.show()
 
 
 ########## Test of the agent after learning ##########
-trials = 2000
+trials = 2000 # number of trials for testing
 wins = 0
 winStart = 0
 optMove = 0
@@ -248,9 +256,13 @@ for i in range(trials):
         if board == board_end:
             break
 
-print "Win rate = {}/{} = {:.2f}%\n\nOptimal moves rate = {}/{} = {:.2f}%\n".format(wins, winStart, float(wins)/float(winStart)*100, \
-              optDone, optMove, float(optDone)/float(optMove)*100)
+print "Agent tested over {} games:\n".format(trials)
+print "Winning rate (only considering games where the agent can win):\n" + \
+       "{}/{} = {:.2f}%\n".format(wins, winStart, float(wins)/float(winStart)*100)
+print "Optimal moves rate (only considering moves where an optimal one exists):\n" + \
+       "{}/{} = {:.2f}%\n".format(optDone, optMove, float(optDone)/float(optMove)*100)
 
+# Compute the final F-Score
 optMove_P = 0.
 optMove_TP = 0.
 optMove_FP = 0.
@@ -284,10 +296,13 @@ if optMoveFound_Precision+optMoveFound_Recall == 0:
 else:
     optMoveFound_F = 2*optMoveFound_Precision*optMoveFound_Recall / \
                       (optMoveFound_Precision+optMoveFound_Recall)
-                
+
+print "\nIf we consider the problem as a classification where the agent has " + \
+       "to classify optimal moves from the others, we can use the F-measure " + \
+       "to evaluate the learning of our agent:\n"           
 print "Recall = {:.3f}".format(optMoveFound_Recall)
 print "Precision = {:.3f}".format(optMoveFound_Precision)
-print "F-measure = {:.3f}".format(optMoveFound_F)
+print "F-Score = {:.3f}".format(optMoveFound_F)
 
 
 ########## Play against the agent ##########
@@ -296,11 +311,12 @@ clear_output()
 wantToPlay = True
 
 while wantToPlay:
-    print "Nim - New game\n"
+    print "--------------\nNim - New game\n--------------\n"
     
     print "Let's start by defining our game:"
     print "There are {} heaps, but some of them might be empty.".format(len(board_ini))
     
+    # Create the board
     board = []
     for x in range(len(board_ini)):
         num = raw_input("Enter number of matches on heap {}: (must be between 0 and {})\n".format(x+1, board_ini[x]))
@@ -334,14 +350,29 @@ while wantToPlay:
         agent.greedyMove(board)
         clear_output()
         print "Current board: {}\n".format(board)
+        if board == board_end:
+            print "You lost..."
+            wantToPlay = raw_input("Do you want to play again? (y/n)")
+            if wantToPlay.startswith('y') or userStart.startswith('Y'):
+                wantToPlay = True
+            else:
+                wantToPlay = False
+            continue
     else:
         clear_output()
         print "Current board: {}\n".format(board)
     
+    # Moves until the end of the game
     while True:
         userMove = True
         while userMove:
-            heap, num = raw_input("Enter heap and number of matches you want to take separated with space ex.(1 2):  ").split()
+            while True:
+                try:
+                    heap, num = raw_input("Enter heap and number of matches you " +\
+                                          "want to take separated with space ex.(1 2):  ").split()
+                    break
+                except ValueError:
+                    print "That was no valid number.  Try again..."
             heap = int(heap)-1
             num = int(num)
             
@@ -366,11 +397,12 @@ while wantToPlay:
         sleep(1.3)
         agent.greedyMove(board)
         clear_output()
+        print "Current board: {}\n".format(board)
         if board == board_end:
             print "You lost..."
             break
-        print "Current board: {}\n".format(board)
         
+    # Replay ?
     wantToPlay = raw_input("Do you want to play again? (y/n)")
     if wantToPlay.startswith('y') or userStart.startswith('Y'):
         wantToPlay = True
