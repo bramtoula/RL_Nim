@@ -36,7 +36,7 @@ epsilon_rand = np.linspace(0,1,4)
 #Network learning parameters, also look at DQN construction
 num_episodes = 10000
 BATCH_SIZE = 128
-REPLAY_SIZE = 1000
+REPLAY_SIZE = 10000
 
 USE_CUDA = torch.cuda.is_available()
 
@@ -62,6 +62,7 @@ def resetBoard():
         #heap.append(x)
         #heap.append(5)
     done = 0
+    heap = list(np.sort(heap))
 
 def nimSum(_heap):
     return reduce(lambda x,y: x^y, _heap)
@@ -75,6 +76,7 @@ def computerMove(ai_eps):
     if nimSum(heap)==0 or random.randrange(1000)/1000.0 < ai_eps:
         heap[heap.index(max(heap))]-=randint(1,max(heap))
     else: heap[winingHeap(heap)]^=nimSum(heap)
+    heap = list(np.sort(heap))
 
 
 def isItEnd():
@@ -153,6 +155,8 @@ class Variable(autograd.Variable):
 
 
 def getMaxValidAction():
+    global heap
+    heap = list(np.sort(heap))
     QSA_for_actions = model(Variable(torch.FloatTensor(heap), volatile=True)).data.cpu()
     curMax = -sys.maxint
     curActionIndex = -1
@@ -187,6 +191,14 @@ def select_action(greedy_eps):
         randNum = random.randrange(heap[randBin])
         return randBin*heapMax+randNum
 
+def agentMove(greedy_eps):
+    global heap
+    action = select_action(greedy_eps)
+    binNum = action/heapMax
+    amount = (action%heapMax)+1
+    heap[binNum] -= amount
+    heap = list(np.sort(heap))
+    return action
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -241,12 +253,7 @@ def test(ai_eps, lr, greedy_eps):
         if (firstAITurn == 1):
             computerMove(ai_eps);
         for t in count():
-            action = select_action(greedy_eps)
-            current_heap = heap[:]
-            binNum = action/heapMax
-            amount = (action%heapMax)+1
-            heap[binNum] -= amount
-            
+            agentMove(greedy_eps)
             total_moves += 1
             if nimSum(heap) == 0:
                 nimsum_moves += 1
@@ -266,69 +273,71 @@ def test(ai_eps, lr, greedy_eps):
     return win_count/float(num_eps), nimsum_moves/float(total_moves)
 
 def getFScore(model):
-    totalPossibleStates = math.pow(heapMax, heaps) - 1.0
+    totalMovesForPrecision = 0;
     precisionCount = 0;
     recallCount = 0;
     totalPossibleNimSumMoves = 0;
-    for h1 in range(0, heapMax+1):
-        for h2 in range (0, heapMax+1):
-            for h3 in range (0, heapMax+1):
-                for h4 in range (1, heapMax+1):
-                    if (h1 == 0 and h2 == 0 and h3 == 0 and h4 == 0):
+    for h0 in range(0, heapMax+1):
+        for h1 in range(h0, heapMax+1):
+            for h2 in range (h1, heapMax+1):
+                for h3 in range (h2, heapMax+1):
+                    curHeap = [h0, h1, h2, h3];
+                    if (sum(curHeap) == 0):
                         continue
-                    curHeap = [h1, h2, h3, h4]
                     heapTest = curHeap[:]
-                    
-                    #Get best action for test test state for precision
+                    #Get q function values for state
                     QSA_for_actions = model(Variable(torch.FloatTensor(heapTest), volatile=True)).data.cpu()
-                    
-                    curMax = -sys.maxint
-                    curActionIndex = -1
-                    index = 0
-                    for qsa in QSA_for_actions[0]:
-                        binNum = index/heapMax
-                        numPick = (index%heapMax)+1
-                        if qsa > curMax and heapTest[binNum] >= numPick:
-                            curActionIndex = index
-                            curMax = qsa
-                        index += 1
 
-                    binNum = curActionIndex/heapMax
-                    amount = (curActionIndex%heapMax)+1
-                    heapTest[binNum] -= amount
-                    
-                    if (nimSum(heapTest) == 0):
-                        precisionCount += 1;
-                    
-                    #Get recall
-                    heapTest = curHeap[:]
+                    #Get precision and recall counts counts
                     index = 0
                     for qsa in QSA_for_actions[0]:
+                        heapTest = curHeap[:]
                         binNum = index/heapMax
                         numPick = (index%heapMax)+1
-                        if heapTest[binNum] >= numPick:
+                        if (heapTest[binNum] >= numPick):
                             heapTest[binNum] -= numPick
-                            #move is a nimsum move
+                            if (qsa >= 9.0):
+                                totalMovesForPrecision += 1
+                                if (nimSum(heapTest)):
+                                    precisionCount += 1;
                             if (nimSum(heapTest) == 0):
                                 totalPossibleNimSumMoves+=1
                                 #also a move chosen by the model?
-                                if (abs(qsa-curMax) <= 0.1):
+                                if (qsa > 9.0):
                                     recallCount += 1
-                        heapTest = curHeap[:]
                         index += 1
-                    
-    precision = float(precisionCount)/totalPossibleStates
-    recall = float(recallCount)/totalPossibleNimSumMoves
+    
+    if (totalMovesForPrecision == 0):
+        precision = 0
+    else:
+        precision = float(precisionCount)/totalMovesForPrecision
 
-    return precision, recall, 2*precision*recall/(precision+recall)
+    if (totalPossibleNimSumMoves == 0):
+        recall = 0
+    else:
+        recall = float(recallCount)/totalPossibleNimSumMoves
+
+    if recall+precision == 0:
+        fscore = 0;
+    else:
+        fscore = 2*precision*recall/(precision+recall)
+
+    return precision, recall, fscore
 
 #################
 # Training loop #
 #################
+FScoreArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
 
+ai_eps_ind = -1
 for ai_eps in epsilon_rand:
+    ai_eps_ind += 1
+    lr_ind = -1
     for lr in LEARNING_RATE:
+        lr_ind += 1
+        greedy_eps_ind = -1
         for greedy_eps in STATIC_EPS:
+            greedy_eps_ind += 1
             print ["TRAINING...", "AI Optimality:", ai_eps, "Learning Rate:", lr, "Exploration:", greedy_eps]
             resetBoard()
             model = DQN()
@@ -345,26 +354,14 @@ for ai_eps in epsilon_rand:
                 firstAITurn = randint(0,1)
                 if (firstAITurn == 1):
                     computerMove(ai_eps);
-                
                 for t in count():
                     current_heap = heap[:]
-                    action = select_action(greedy_eps)
-                    #Update heap
-                    binNum = action/heapMax
-                    amount = (action%heapMax)+1
-                    heap[binNum] -= amount
-                    
+                    action = agentMove(greedy_eps)
                     done = isItEnd()
                     reward = torch.Tensor([0])
-                    #if nimSum() == 0:
-                    #    reward = torch.Tensor([5])
-                    #else:
-                    #    reward = torch.Tensor([-5])
                     if done:
-                        #lost
                         reward = torch.Tensor([10])
                     else:
-                        #now ai move
                         computerMove(ai_eps);
                         done = isItEnd();
                         #won
@@ -374,18 +371,17 @@ for ai_eps in epsilon_rand:
                     next_heap = torch.FloatTensor(heap[:])
                     if done:
                         next_heap = None
-
                     memory.push(torch.FloatTensor(current_heap), torch.LongTensor([[action]]), next_heap, torch.FloatTensor(reward))
                     # Perform one step of the optimization (on the target network)
                     optimize_model()
                     if done:
-                        if (i_episode % 1000 == 0):
-                            winP, opMoveP = test(ai_eps, lr, 1.0)
-                            print ["Epsiode", i_episode, winP, opMoveP]
-                            sys.stdout.flush()
                         break
 
+            winP, opMoveP = test(ai_eps, lr, 1.0)
             precision, recall, fscore = getFScore(model)
-            print ["FScore:", fscore, "Precision:", precision, "Recall:", recall]
+            print ["FScore:", fscore, "Precision:", precision, "Recall:", recall, "Win Percent:", winP, "Optimal Move Percent:", opMoveP]
+            FScoreArray[ai_eps_ind, lr_ind, greedy_eps_ind] = fscore;
             sys.stdout.flush()
+
+save('./grid_fscores', FScoreArray)
 
