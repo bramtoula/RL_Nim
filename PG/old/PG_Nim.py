@@ -9,17 +9,13 @@ from time import sleep
 
 
 # hyperparameters
-max_heap_nb = 5 # maximum number of heaps
-max_heap_size = 4   # maximum items in one heap
-H = 200 # number of hidden layer neurons # CHANGE
+H = 1000 # number of hidden layer neurons # CHANGE
 batch_size = 10 # every how many episodes to do a param update?
 learning_rate = 1e-4
-gamma = 0.9 # discount factor for reward
+gamma = 0.99 # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
 render = False
-binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-epsilon = 0.4 # The opponent will play epsilon optimal
 
 heap = []
 originalHeap = []
@@ -41,46 +37,19 @@ def defineBoard():
     global originalHeap
     global heapMax
     global heap
-    global randomHeap
     os.system('clear')
     print "Let's start by defining our game:"
-
-    randomHeap = 'y' == raw_input("Do you want the heaps to be random during learning ? (y/n)")
-    if not randomHeap:
-        heapNb = raw_input("Enter number of heaps you want: ")
-        heapNb = int(heapNb)
-        for x in range(1,int(heapNb)+1):
-            num = raw_input("Enter number of matches on heap %d: " % x)
-            heap.append(int(num))
-        heap = fillHeapZeros(heap)
-        originalHeap = list(heap)
-
-    else:
-        heap = defineRandomBoard()
-    heap = sortHeap(heap)
-    heapMax = max(heap)
-
-# Function which fills the heap array with zeros if the number of heaps used is less than the maximum allowed
-def fillHeapZeros(heap):
-    while len(heap) < max_heap_nb:
-        heap = np.append(heap,0)
-    return heap
-
-# Sorts heap in descending order
-def sortHeap(heap):
+    heapNb = raw_input("Enter number of heapNb you want: ")
+    heapNb = int(heapNb)
+    for x in range(1,int(heapNb)+1):
+        num = raw_input("Enter number of matches on heap %d: " % x)
+        heap.append(int(num))
     heap = np.sort(heap)
     heap[:] = heap[::-1]
-    return heap
+    originalHeap = list(heap)
+    heapMax = max(heap)
 
-# Fills a random number of heaps with random number of items, within the maximum ranges
-def defineRandomBoard():
-    heap = []
-    heapNb = random.randint(3,max_heap_nb)
-    for i in range(0,heapNb):
-        heap = np.append(heap,random.randint(1,max_heap_size+1))
-    heap = fillHeapZeros(heap)
-    heap = heap.astype(int)
-    return heap
+
 
 def printBoard(heap):
     clear_terminal()
@@ -119,14 +88,11 @@ def userMove():
 
 
 def computerMove():
-    if epsilon > random.uniform(0, 1): # random move
-        heap[np.argmax(heap)]-=random.randint(1,max(heap))
-    else:
-        if nimSum() == 0: # optimal move
-            heap[np.argmax(heap)]-=random.randint(1,max(heap))
-        else:
-            heap[winningHeap()]^=nimSum()
-
+    # if nimSum() == 0:
+    #     heap[np.argmax(heap)]-=random.randint(1,max(heap))
+    # else:
+    #     heap[winningHeap()]^=nimSum()
+    heap[np.argmax(heap)]-=random.randint(1,max(heap))
 
 
 def isItEnd():
@@ -135,10 +101,7 @@ def isItEnd():
 
 
 defineBoard()
-if binary_input:
-    D = max_heap_nb*3 #CHANGE # input dimensionality: number of heapNb (in binary)
-else:
-    D = max_heap_nb
+D = heapNb # input dimensionality: number of heapNb (in binary?)
 agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
 
 # model initialization
@@ -148,7 +111,7 @@ if resume:
 else:
     model = {}
     model['W1'] = np.random.randn(H,D) / np.sqrt(D) # "Xavier" initialization
-    model['W2'] = np.random.randn(H,max_heap_nb*max_heap_size) / np.sqrt(H)
+    model['W2'] = np.random.randn(H) / np.sqrt(H)
 
 grad_buffer = { k : np.zeros_like(v) for k,v in model.iteritems() } # update buffers that add up gradients over a batch
 rmsprop_cache = { k : np.zeros_like(v) for k,v in model.iteritems() } # rmsprop memory
@@ -162,44 +125,29 @@ def discount_rewards(r):
     discounted_r = np.zeros_like(r)
     running_add = 0
     for t in reversed(xrange(0, r.size)):
-        if r[t] != 0: running_add = 0 # reset the sum, since this was a game boundary
+        if r[t] != 0: running_add = 0 # reset the sum, since this was a game boundary (pong specific!)
         running_add = running_add * gamma + r[t]
         discounted_r[t] = running_add
     return discounted_r
 
-def heap_to_binary(heap):
-    x_bin = []
-    for i in range (0,max_heap_nb):
-        temp = ([int(d) for d in str(bin(heap[i]))[2:]])
-        if len(temp) == 1:
-            x_bin = np.append(x_bin,[0,0,temp[0]])
-        elif len(temp) == 2:
-            x_bin = np.append(x_bin,[0,temp[1],temp[0]])
-        else:
-            x_bin = np.append(x_bin,temp)
-    return x_bin
-
 def policy_forward(x):
-    # Convert heaps in binary
     h = np.dot(model['W1'], x)
     h[h<0] = 0 # ReLU nonlinearity
-    logp = np.dot(model['W2'].T, h)
+    logp = np.dot(model['W2'], h)
     p = sigmoid(logp)
     return p, h # return probability of taking action 2, and hidden state
 
 def policy_backward(eph, epdlogp):
     """ backward pass. (eph is array of intermediate hidden states) """
-    # dW2 = np.dot(eph.T, epdlogp).ravel()
-    dW2 = np.dot(eph.T, epdlogp)
-    dh = np.dot(epdlogp, model['W2'].T)
+    dW2 = np.dot(eph.T, epdlogp).ravel()
+    dh = np.outer(epdlogp, model['W2'])
     dh[eph <= 0] = 0 # backpro prelu
     dW1 = np.dot(dh.T, epx)
+
     return {'W1':dW1, 'W2':dW2}
 
 xs,hs,dlogps,drs = [],[],[],[]
 running_reward = None
-computerWin = False
-playerWin = False
 reward_sum = 0
 episode_number = 0
 while True:
@@ -216,50 +164,67 @@ while True:
         #     heap[heap.index(max(heap))]-= 1
         #   if max(heap) > 1:
         #     heap[heap.index(max(heap))]-=random.randint(1,max(heap)) # Change to total random play
-        heap = sortHeap(heap)
+        heap = np.sort(heap)
+        heap[:] = heap[::-1]
         agentTurn = True
         continue
 
-    if binary_input:
-        x = heap_to_binary(heap)
-    else:
-        x = list(heap)
-    reward = 0.0
+
     computerWin = isItEnd()
-    aprob, h = policy_forward(x)
-    xs.append(x) # observation
+    aprob, h = policy_forward(heap)
+    xs.append(heap[:]) # observation
     hs.append(h) # hidden state
+    reward = 0.0
     finish = False
+    actionsIndexNb = np.sum(heap)
 
-    play = 0
-    for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
-        actionRemoveIndex = int(i)/int(max_heap_size)
-        actionRemoveNb = int(i)%int(max_heap_size)+1
-        if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
-            play = i
+    play = int(actionsIndexNb*aprob)+1
 
-    y = np.zeros(len(aprob))
-    y[play] = 1.0
+    # record various intermediates (needed later for backprop)
+    if actionsIndexNb != 0:
+        y = (play-0.5)/actionsIndexNb
+    else:
+        y = 0
 
     dlogps.append(y - aprob) # grad that encourages the action that was taken to be taken (see http://cs231n.github.io/neural-networks-2/#losses if confused)
     if not computerWin:
-        actionRemoveIndex = int(play)/int(max_heap_size)
-        actionRemoveNb = int(play)%int(max_heap_size)+1
+        # Player move
+        for i in range (0,len(heap)):
+            temp = play - sum(heap[0:i+1])
+            if temp <= 0:
+                actionRemoveIndex = i
+                actionRemoveNb = int(play - sum(heap[0:i]))
+                finish = True
+                break
+        # actionRemoveIndex = int(play)/heapMax
+        # actionRemoveNb = int(play)%heapMax
+        # if heap[actionRemoveIndex] >= actionRemoveNb:
+        #     finish = True
+        #     heap[actionRemoveIndex] -= actionRemoveNb # CHANGE METHOD TO ACQUIRE MOVE ; USE 2 output NEURONS ? VERIFY IF POSSIBLE MOVE ?
+        # else : # random play but penalize
+        #     if max(heap) == 1:
+        #       heap[heap.index(max(heap))]-= 1
+        #     if max(heap) > 1:
+        #       heap[heap.index(max(heap))]-=random.randint(1,max(heap)) # Change to total random play
+        #     reward = -0.5
+        #     finish = True
         heap[actionRemoveIndex] -= actionRemoveNb
-        heap = sortHeap(heap)
+        heap = np.sort(heap)
+        heap[:] = heap[::-1] #Sort descending
         playerWin = isItEnd()
         agentTurn = False
 
+        # Should be in main loop ?
     done = playerWin or computerWin
     if computerWin:
         reward = -1.0
     elif playerWin:
         reward = +1.0
-
     drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
 
     reward_sum += reward
+
     if done: # an episode finished
         episode_number += 1
         computerWin = False
@@ -272,9 +237,10 @@ while True:
         epdlogp = np.vstack(dlogps)
         epr = np.vstack(drs)
         xs,hs,dlogps,drs = [],[],[],[] # reset array memory
+
+
         # compute the discounted reward backwards through time
         discounted_epr = discount_rewards(epr)
-
         # standardize the rewards to be unit normal (helps control the gradient estimator variance)
         discounted_epr -= np.mean(discounted_epr)
         discounted_epr /= np.std(discounted_epr)
@@ -297,13 +263,8 @@ while True:
             print 'resetting env. episode reward total was %f. running mean: %f' % (reward_sum, running_reward)
 
         reward_sum = 0
-
-        if randomHeap:
-            heap = defineRandomBoard()
-        else:
-            heap = list(originalHeap)
-        heap = sortHeap(heap)
+        heap = list(originalHeap)
         agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
 
-    if reward != 0 and (episode_number % 1000 == 0) : # Nim has either +1 or -1 reward exactly when game ends.
+    if reward != 0 and (episode_number % 1000 == 0) : # Pong has either +1 or -1 reward exactly when game ends.
         print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')

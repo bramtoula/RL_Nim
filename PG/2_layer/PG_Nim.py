@@ -11,7 +11,8 @@ from time import sleep
 # hyperparameters
 max_heap_nb = 5 # maximum number of heaps
 max_heap_size = 4   # maximum items in one heap
-H = 200 # number of hidden layer neurons # CHANGE
+H1 = 200 # number of hidden layer neurons # CHANGE
+H2 = 200 # number of hidden layer neurons # CHANGE
 batch_size = 10 # every how many episodes to do a param update?
 learning_rate = 1e-4
 gamma = 0.9 # discount factor for reward
@@ -147,8 +148,9 @@ if resume:
     model = pickle.load(open('save.p', 'rb'))
 else:
     model = {}
-    model['W1'] = np.random.randn(H,D) / np.sqrt(D) # "Xavier" initialization
-    model['W2'] = np.random.randn(H,max_heap_nb*max_heap_size) / np.sqrt(H)
+    model['W1'] = np.random.randn(H1,D) / np.sqrt(D) # "Xavier" initialization
+    model['W2'] = np.random.randn(H1,H2) / np.sqrt(H2) # "Xavier" initialization
+    model['W3'] = np.random.randn(H2,max_heap_nb*max_heap_size) / np.sqrt(H2)
 
 grad_buffer = { k : np.zeros_like(v) for k,v in model.iteritems() } # update buffers that add up gradients over a batch
 rmsprop_cache = { k : np.zeros_like(v) for k,v in model.iteritems() } # rmsprop memory
@@ -181,22 +183,26 @@ def heap_to_binary(heap):
 
 def policy_forward(x):
     # Convert heaps in binary
-    h = np.dot(model['W1'], x)
-    h[h<0] = 0 # ReLU nonlinearity
-    logp = np.dot(model['W2'].T, h)
+    h1 = np.dot(model['W1'], x)
+    h1[h1<0] = 0 # ReLU nonlinearity
+    h2 = np.dot(model['W2'],h1)
+    logp = np.dot(model['W3'].T, h2)
     p = sigmoid(logp)
-    return p, h # return probability of taking action 2, and hidden state
+    return p, h1, h2 # return probability of taking action 2, and hidden state
 
-def policy_backward(eph, epdlogp):
+def policy_backward(eph1, eph2, epdlogp):
     """ backward pass. (eph is array of intermediate hidden states) """
-    # dW2 = np.dot(eph.T, epdlogp).ravel()
-    dW2 = np.dot(eph.T, epdlogp)
-    dh = np.dot(epdlogp, model['W2'].T)
-    dh[eph <= 0] = 0 # backpro prelu
-    dW1 = np.dot(dh.T, epx)
-    return {'W1':dW1, 'W2':dW2}
+    # dW3 = np.dot(eph.T, epdlogp).ravel()
+    dW3 = np.dot(eph2.T, epdlogp)
+    dh2 = np.dot(epdlogp, model['W3'].T)
+    dh2[eph2 <= 0] = 0 # backpro prelu
+    dW2 = np.dot(dh2.T,eph1)
+    dh1 = np.dot(dh2,model['W2'].T) # not sure
+    dh1[eph1 <= 0] = 0 # backpro prelu
+    dW1 = np.dot(dh1.T, epx)
+    return {'W1':dW1, 'W2':dW2, 'W3':dW3}
 
-xs,hs,dlogps,drs = [],[],[],[]
+xs,h1s,h2s,dlogps,drs = [],[],[],[],[]
 running_reward = None
 computerWin = False
 playerWin = False
@@ -226,9 +232,10 @@ while True:
         x = list(heap)
     reward = 0.0
     computerWin = isItEnd()
-    aprob, h = policy_forward(x)
+    aprob, h1, h2 = policy_forward(x)
     xs.append(x) # observation
-    hs.append(h) # hidden state
+    h1s.append(h1) # hidden state
+    h2s.append(h2) # hidden state
     finish = False
 
     play = 0
@@ -268,10 +275,11 @@ while True:
         #epx = np.vstack(xs)
         #eph = np.vstack(hs)
         epx = np.vstack(xs)
-        eph = np.vstack(hs)
+        eph1 = np.vstack(h1s)
+        eph2 = np.vstack(h2s)
         epdlogp = np.vstack(dlogps)
         epr = np.vstack(drs)
-        xs,hs,dlogps,drs = [],[],[],[] # reset array memory
+        xs,h1s,h2s,dlogps,drs = [],[],[],[],[] # reset array memory
         # compute the discounted reward backwards through time
         discounted_epr = discount_rewards(epr)
 
@@ -279,7 +287,7 @@ while True:
         discounted_epr -= np.mean(discounted_epr)
         discounted_epr /= np.std(discounted_epr)
         epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
-        grad = policy_backward(eph, epdlogp)
+        grad = policy_backward(eph1,eph2,epdlogp)
         for k in model: grad_buffer[k] += grad[k] # accumulate grad over batch
 
         # perform rmsprop parameter update every batch_size episodes
