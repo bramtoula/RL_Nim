@@ -253,7 +253,16 @@ def test(ai_eps, lr, greedy_eps):
         if (firstAITurn == 1):
             computerMove(ai_eps);
         for t in count():
+<<<<<<< HEAD
+            action = select_action(greedy_eps)
+            current_heap = heap[:]
+            binNum = action/heapMax
+            amount = (action%heapMax)+1
+            heap[binNum] -= amount
+
+=======
             agentMove(greedy_eps)
+>>>>>>> 0cce8bd9ac6cece18a98f64a617b625627db3a04
             total_moves += 1
             if nimSum(heap) == 0:
                 nimsum_moves += 1
@@ -285,10 +294,37 @@ def getFScore(model):
                     if (sum(curHeap) == 0):
                         continue
                     heapTest = curHeap[:]
+<<<<<<< HEAD
+
+                    #Get best action for test test state for precision
+                    QSA_for_actions = model(Variable(torch.FloatTensor(heapTest), volatile=True)).data.cpu()
+
+                    curMax = -sys.maxint
+                    curActionIndex = -1
+                    index = 0
+                    for qsa in QSA_for_actions[0]:
+                        binNum = index/heapMax
+                        numPick = (index%heapMax)+1
+                        if qsa > curMax and heapTest[binNum] >= numPick:
+                            curActionIndex = index
+                            curMax = qsa
+                        index += 1
+
+                    binNum = curActionIndex/heapMax
+                    amount = (curActionIndex%heapMax)+1
+                    heapTest[binNum] -= amount
+
+                    if (nimSum(heapTest) == 0):
+                        precisionCount += 1;
+
+                    #Get recall
+                    heapTest = curHeap[:]
+=======
                     #Get q function values for state
                     QSA_for_actions = model(Variable(torch.FloatTensor(heapTest), volatile=True)).data.cpu()
 
                     #Get precision and recall counts counts
+>>>>>>> 0cce8bd9ac6cece18a98f64a617b625627db3a04
                     index = 0
                     for qsa in QSA_for_actions[0]:
                         heapTest = curHeap[:]
@@ -306,11 +342,17 @@ def getFScore(model):
                                 if (qsa > 9.0):
                                     recallCount += 1
                         index += 1
+<<<<<<< HEAD
+
+    precision = float(precisionCount)/totalPossibleStates
+    recall = float(recallCount)/totalPossibleNimSumMoves
+=======
     
     if (totalMovesForPrecision == 0):
         precision = 0
     else:
         precision = float(precisionCount)/totalMovesForPrecision
+>>>>>>> 0cce8bd9ac6cece18a98f64a617b625627db3a04
 
     if (totalPossibleNimSumMoves == 0):
         recall = 0
@@ -356,9 +398,21 @@ for ai_eps in epsilon_rand:
                 firstAITurn = randint(0,1)
                 if (firstAITurn == 1):
                     computerMove(ai_eps);
+<<<<<<< HEAD
+
+                for t in count():
+                    current_heap = heap[:]
+                    action = select_action(greedy_eps)
+                    #Update heap
+                    binNum = action/heapMax
+                    amount = (action%heapMax)+1
+                    heap[binNum] -= amount
+
+=======
                 for t in count():
                     current_heap = heap[:]
                     action = agentMove(greedy_eps)
+>>>>>>> 0cce8bd9ac6cece18a98f64a617b625627db3a04
                     done = isItEnd()
                     reward = torch.Tensor([0])
                     if done:
@@ -386,7 +440,10 @@ for ai_eps in epsilon_rand:
             WinArray[ai_eps_ind, lr_ind, greedy_eps_ind] = winP;
             OptimalMoveArray[ai_eps_ind, lr_ind, greedy_eps_ind] = opMoveP;
             sys.stdout.flush()
+<<<<<<< HEAD
+=======
 
 np.save('./grid_fscores', FScoreArray)
 np.save('./grid_win', WinArray)
 np.save('./grid_optimal', OptimalMoveArray)
+>>>>>>> 0cce8bd9ac6cece18a98f64a617b625627db3a04
