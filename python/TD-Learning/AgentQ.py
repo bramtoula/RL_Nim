@@ -28,20 +28,18 @@ class AgentQ():
         """ chooses action according to action policy """
         r = rnd.random()
 
-        if r > self.epsilon: # for epsilon-greedy policy
+        if r < self.epsilon: # for epsilon-greedy policy
             a = rnd.randrange(len(self.actions))
         else:       # choose best possible action in this state
             q = list(self.Q[s,:])
-            m = max(q)
-            if q.count(m) > 1: # if more than 1 action w/ max value
-                bestAction = []
-                for i in range(len(q)):
-                    if q[i] == m:
-                        bestAction.append(i)
-                a = rnd.choice(bestAction)
-
-            else:
-                a = np.argmax(self.Q[s,:])
+            m = max(q) - 1E-5  # add an uncertainty
+            
+            bestAction = []
+            for i in range(len(q)):
+                if q[i] >= m:
+                    bestAction.append(i)
+    
+            a = rnd.choice(bestAction)
         if self.isValid(s, a) == False:
             return self.chooseAction(s)
         else:
@@ -72,16 +70,14 @@ class AgentQ():
 
     def optimalAction(self, sp):
         q = list(self.Q[sp,:])
-        m = max(q)
-        if q.count(m) > 1: # if more than 1 action w/ max value
-            bestAction = []
-            for i in range(len(q)):
-                if q[i] == m:
-                    bestAction.append(i)
+        m = max(q) - 1E-5  # add an uncertainty
+        
+        bestAction = []
+        for i in range(len(q)):
+            if q[i] >= m:
+                bestAction.append(i)
 
-            ap = rnd.choice(bestAction)
-        else:
-            ap = np.argmax(self.Q[sp,:])
+        ap = rnd.choice(bestAction)
         
         if self.isValid(sp, ap) == False:
             return self.optimalAction(sp)
@@ -131,16 +127,14 @@ class AgentQ():
     def greedyAction(self, sp):
         # choose best possible action in this state
         q = list(self.Q[sp,:])
-        m = max(q)
-        if q.count(m) > 1: # if more than 1 action w/ max value
-            bestAction = []
-            for i in range(len(q)):
-                if q[i] == m:
-                    bestAction.append(i)
+        m = max(q) - 1E-5  # add an uncertainty
+        
+        bestAction = []
+        for i in range(len(q)):
+            if q[i] >= m:
+                bestAction.append(i)
 
-            ap = rnd.choice(bestAction)
-        else:
-            ap = np.argmax(self.Q[sp,:])
+        ap = rnd.choice(bestAction)
         
         if self.isValid(sp, ap) == False:
             return self.greedyAction(sp)
