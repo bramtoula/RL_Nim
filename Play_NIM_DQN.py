@@ -69,7 +69,7 @@ def winingHeap():
 def userMove():
     row, num = raw_input("Enter row and num of matches you want to take separated with space ex.(1 2):  ").split()
     row, num = int(row)-1,int(num)
-    
+
     try:
         if row <= -1: raise
         if num>0 and num<=heap[row]:
@@ -125,7 +125,7 @@ class DQN(nn.Module):
         return x
 
 class Variable(autograd.Variable):
-    
+
     def __init__(self, data, *args, **kwargs):
         if USE_CUDA:
             data = data.cuda()
@@ -136,7 +136,7 @@ def getMaxValidAction():
     QSA_for_actions = model(Variable(torch.FloatTensor(heap), volatile=True)).data.cpu()
     curMax = -sys.maxint
     curActionIndex = -1
-    
+
     index = 0
     for qsa in QSA_for_actions[0]:
         binNum = index/heapMax
@@ -185,10 +185,10 @@ if USE_CUDA:
 computer_player = 'DQN'
 #computer_player = 'AI'
 
-while not done
+while not done:
     userMove()
     action = select_action()
-    
+
     done = isItEnd()
     if done:
         print "Agent Won"
@@ -196,17 +196,14 @@ while not done
         print "Agent Turn"
         if computer_player == 'AI':
             computerMove(0);
-        else if computer_player == 'DQN':
+        elif computer_player == 'DQN':
             action = select_action()
             binNum = action/heapMax
             amount = (action%heapMax)+1
             heap[binNum] -= amount
             printBoard(heap)
         sleep(pauseTime)
-        
+
         done = isItEnd();
         if done:
             print "You Won!"
-
-
-

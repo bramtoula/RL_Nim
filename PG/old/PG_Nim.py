@@ -9,17 +9,13 @@ from time import sleep
 
 
 # hyperparameters
-max_heap_nb = 5
-max_heap_size = 5
-H = 30 # number of hidden layer neurons # CHANGE
+H = 1000 # number of hidden layer neurons # CHANGE
 batch_size = 10 # every how many episodes to do a param update?
 learning_rate = 1e-4
 gamma = 0.99 # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
 render = False
-binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-epsilon = 0.9 # The opponent will play epsilon optimal
 
 heap = []
 originalHeap = []
@@ -48,8 +44,6 @@ def defineBoard():
     for x in range(1,int(heapNb)+1):
         num = raw_input("Enter number of matches on heap %d: " % x)
         heap.append(int(num))
-    for x in range(int(heapNb)+1,max_heap_nb+1):
-        heap.append(0)
     heap = np.sort(heap)
     heap[:] = heap[::-1]
     originalHeap = list(heap)
@@ -94,14 +88,11 @@ def userMove():
 
 
 def computerMove():
-    if epsilon > random.uniform(0, 1): # random move
-        heap[np.argmax(heap)]-=random.randint(1,max(heap))
-    else:
-        if nimSum() == 0: # optimal move
-            heap[np.argmax(heap)]-=random.randint(1,max(heap))
-        else:
-            heap[winningHeap()]^=nimSum()
-
+    # if nimSum() == 0:
+    #     heap[np.argmax(heap)]-=random.randint(1,max(heap))
+    # else:
+    #     heap[winningHeap()]^=nimSum()
+    heap[np.argmax(heap)]-=random.randint(1,max(heap))
 
 
 def isItEnd():
@@ -110,10 +101,7 @@ def isItEnd():
 
 
 defineBoard()
-if binary_input:
-    D = max_heap_nb*3 #CHANGE # input dimensionality: number of heapNb (in binary)
-else:
-    D = max_heap_nb
+D = heapNb # input dimensionality: number of heapNb (in binary?)
 agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
 
 # model initialization
@@ -142,20 +130,7 @@ def discount_rewards(r):
         discounted_r[t] = running_add
     return discounted_r
 
-def heap_to_binary(heap):
-    x_bin = []
-    for i in range (0,max_heap_nb):
-        temp = ([int(d) for d in str(bin(heap[i]))[2:]])
-        if len(temp) == 1:
-            x_bin = np.append(x_bin,[0,0,temp[0]])
-        elif len(temp) == 2:
-            x_bin = np.append(x_bin,[0,temp[1],temp[0]])
-        else:
-            x_bin = np.append(x_bin,temp)
-    return x_bin
-
 def policy_forward(x):
-    # Convert heaps in binary
     h = np.dot(model['W1'], x)
     h[h<0] = 0 # ReLU nonlinearity
     logp = np.dot(model['W2'], h)
@@ -194,14 +169,10 @@ while True:
         agentTurn = True
         continue
 
-    if binary_input:
-        x = heap_to_binary(heap)
-    else:
-        x = list(heap)
 
     computerWin = isItEnd()
-    aprob, h = policy_forward(x)
-    xs.append(x) # observation
+    aprob, h = policy_forward(heap)
+    xs.append(heap[:]) # observation
     hs.append(h) # hidden state
     reward = 0.0
     finish = False
@@ -209,6 +180,7 @@ while True:
 
     play = int(actionsIndexNb*aprob)+1
 
+    # record various intermediates (needed later for backprop)
     if actionsIndexNb != 0:
         y = (play-0.5)/actionsIndexNb
     else:
