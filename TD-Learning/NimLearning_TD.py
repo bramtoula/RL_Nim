@@ -1,6 +1,7 @@
 ########## Initialization ##########
 
 #import numpy as np
+from time import sleep
 import random as rnd
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
@@ -12,9 +13,10 @@ from Opponent import Opponent
 
 # Variables initialization
 # RL
-stepSize = 1 # alpha
 discount = 1 # no discounting (gamma)
-epsilon = 0.8 # for the e-greedy policy
+stepSize = 1 # alpha - learning rate
+epsilon = 1 # for the e-greedy policy
+opp_epsilon = 0. # fraction of random for the opp
 # Nim
 board_ini = sorted([5,5,5,5])
 runMax = int(3E4)
@@ -38,7 +40,7 @@ def init_board():
 board = list(board_ini)
 board_end = [0] * len(board_ini)
 agent = AgentQ(SA(board), stepSize, discount, epsilon)
-oppLearning = Opponent(SA(board), policy="e-optimal", epsilon=0.)
+oppLearning = Opponent(SA(board), policy="e-optimal", epsilon=opp_epsilon)
 oppOptimal = Opponent(SA(board), policy="optimal")
 
 # Learning curves parameters
@@ -143,9 +145,9 @@ for run in range(runMax):
                     a = agent.actions.index([heap,action])
                     if nimSum == 0:
                         optMove_P += 1.
-                        if agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                        if agent.Q[s][a] >= 0.9:
                             optMove_TP += 1.
-                    elif agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                    elif agent.Q[s][a] >= 0.9:
                         optMove_FP += 1.
         
         optMoveFound_Recall.append(optMove_TP/optMove_P)
@@ -267,9 +269,9 @@ for s in agent.states:
             a = agent.actions.index([heap,action])
             if nimSum == 0:
                 optMove_P += 1.
-                if agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                if agent.Q[s][a] >= 0.9:
                     optMove_TP += 1.
-            elif agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+            elif agent.Q[s][a] >= 0.9:
                 optMove_FP += 1.
 
 optMoveFound_Recall = optMove_TP/optMove_P
@@ -286,6 +288,130 @@ else:
 print "Recall = {:.3f}".format(optMoveFound_Recall)
 print "Precision = {:.3f}".format(optMoveFound_Precision)
 print "F-measure = {:.3f}".format(optMoveFound_F)
+
+
+########## Play against the agent ##########
+
+clear_output()
+wantToPlay = True
+
+while wantToPlay:
+    print "Nim - New game\n"
+    
+    print "Let's start by defining our game:"
+    print "There are {} heaps, but some of them might be empty.".format(len(board_ini))
+    
+    board = []
+    for x in range(len(board_ini)):
+        num = raw_input("Enter number of matches on heap {}: (must be between 0 and {})\n".format(x+1, board_ini[x]))
+        num = int(num)
+        while num < 0 or num > 5:
+            clear_output()
+            print "Wrong number of matches!"
+            num = raw_input("Enter number of matches on heap {}: (must be between 0 and {})\n".format(x+1, board_ini[x]))
+            num=int(num)
+        board.append(num)
+    while len(board) < len(board_ini):
+        board.append(0)
+    
+    if board == board_end:
+        clear_output()
+        print "The board cannot be empty! Let's restart..."
+        sleep(1.3)
+        continue
+    
+    clear_output()
+    print "Note that the board will be sorted after each move."
+    print "Current board: {}\n".format(board)
+    board.sort()
+    print "Sorted board: {}\n".format(board)
+    
+    userStart = raw_input("Do you want to start? (y/n)\n")
+    
+    if userStart.startswith('n') or userStart.startswith('N'):
+        print "The agent moves..."
+        sleep(1.3)
+        agent.greedyMove(board)
+        clear_output()
+        print "Current board: {}\n".format(board)
+    else:
+        clear_output()
+        print "Current board: {}\n".format(board)
+    
+    while True:
+        userMove = True
+        while userMove:
+            heap, num = raw_input("Enter heap and number of matches you want to take separated with space ex.(1 2):  ").split()
+            heap = int(heap)-1
+            num = int(num)
+            
+            if heap < 0 or heap >= len(board):
+                print "Wrong heap! Try again"
+                continue
+            if num < 1 or num > board[heap]:
+                print "Wrong number! Try again"
+                continue
+            
+            board[heap] -= num
+            board.sort()
+            userMove = False
+        
+        clear_output()
+        if board == board_end:
+            print "You won !"
+            break
+        
+        print "Current board: {}\n".format(board)
+        print "The agent moves..."
+        sleep(1.3)
+        agent.greedyMove(board)
+        clear_output()
+        if board == board_end:
+            print "You lost..."
+            break
+        print "Current board: {}\n".format(board)
+        
+    wantToPlay = raw_input("Do you want to play again? (y/n)")
+    if wantToPlay.startswith('y') or userStart.startswith('Y'):
+        wantToPlay = True
+    else:
+        wantToPlay = False
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

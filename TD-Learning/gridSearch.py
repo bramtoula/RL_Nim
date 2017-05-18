@@ -12,8 +12,8 @@ from Opponent import Opponent
 
 # Variables initialization
 # RL
-stepSize = [i for i in np.linspace(0,1,11)] # alpha
 discount = 1 # no discounting (gamma)
+stepSize = [i for i in np.linspace(0,1,11)] # alpha
 epsilon =  [i for i in np.linspace(0,1,11)] # for the e-greedy policy
 opp_epsilon = [i for i in np.linspace(0,1,4)] # for the e-optimal opponent
 # Nim
@@ -93,9 +93,9 @@ for ii in range(len(stepSize)):
                         a = agent.actions.index([heap,action])
                         if nimSum == 0:
                             optMove_P += 1.
-                            if agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                            if agent.Q[s][a] >= 0.9:
                                 optMove_TP += 1.
-                        elif agent.Q[s][a] >= max(agent.Q[s])-1E-1 and agent.Q[s][a] >= 0.5:
+                        elif agent.Q[s][a] >= 0.9:
                             optMove_FP += 1.
             
             optMoveFound_Recall = optMove_TP/optMove_P
