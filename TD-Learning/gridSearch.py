@@ -122,6 +122,7 @@ for i in range(len(opp_epsilon)):
     cbar = plt.colorbar(); cbar.set_label("F-Score")
     plt.xlabel("Step size (= alpha)"); plt.ylabel("Epsilon (exploration term)")
     plt.title("Opponent optimal at {:.1f}%".format((1.-opp_epsilon[i])*100.))
+    plt.savefig("figures/gridSearch_{}.pdf".format(i))
     plt.show()
 
 # Look for the first best set of parameters

@@ -13,7 +13,7 @@ from Opponent import Opponent
 # RL
 discount = 1 # no discounting (=gamma)
 stepSize = 1 # alpha , the learning rate
-epsilon = 1 # for the epsilon-greedy policy
+epsilon = 0.8 # for the epsilon-greedy policy
 opp_epsilon = 0. # fraction of randomness for the opponent
 # Nim
 board_ini = sorted([5,5,5,5]) # Biggest board for learning Nim
@@ -186,30 +186,34 @@ for i in range(len(learning_win)):
     learning_win_ave.append(float(sum(learning_win[startIndex:endIndex])) / (len(learning_win[startIndex:endIndex])))
 # Learning curve
 plt.plot(learning_win_ave)
-plt.title("Learning curve")
+plt.title("Learning curve of the agent")
 plt.xlabel("Run"); plt.ylabel("Reward")
 plt.axis([0, runMax, -1.05, 1.05]); plt.grid(True)
+#plt.savefig("figures/LC_a1_e08_op0.pdf")
 plt.show()
 
 # Winning rate (after greedization)
 plt.plot(optimalMoves_runNb, greedy_win)
-plt.title("Winning rate")
+plt.title("Winning rate of the agent")
 plt.xlabel("Run"); plt.ylabel("Games won [%]")
 plt.axis([0, runMax, 0, 105]); plt.grid(True)
+#plt.savefig("figures/win_a1_e08_op0.pdf")
 plt.show()
 
 # Optimal moves rate (after greedization)
 plt.plot(optimalMoves_runNb, optimalMoves)
-plt.title("Optimal moves rate")
+plt.title("Optimal moves rate of the agent")
 plt.xlabel("Run"); plt.ylabel("Optimal move done [%]")
 plt.axis([0, runMax, 0, 105]); plt.grid(True)
+#plt.savefig("figures/optMov_a1_e08_op0.pdf")
 plt.show() 
 
 # F-measure (after greedization)
 plt.plot(optMoveFound_runNb, optMoveFound_F)
-plt.title("F-measure")
+plt.title("F-measure of the agent")
 plt.xlabel("Run"); plt.ylabel("F-score")
 plt.axis([0, runMax, 0, 1.05]); plt.grid(True)
+#plt.savefig("figures/F_a1_e08_op0.pdf")
 plt.show()     
 
 
@@ -308,7 +312,7 @@ print "F-Score = {:.3f}".format(optMoveFound_F)
 ########## Play against the agent ##########
 
 clear_output()
-wantToPlay = True
+wantToPlay = False
 
 while wantToPlay:
     print "--------------\nNim - New game\n--------------\n"
