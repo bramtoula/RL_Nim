@@ -31,20 +31,20 @@ steps_done = 0
 maxBits = len(bin(heapMax))
 
 #How random the AI we train against is
-epsilon_rand = np.linspace(0,1,4)
+epsilon_rand = np.linspace(0,1,2)
 
 #Network learning parameters, also look at DQN construction
 num_episodes = 10000
 BATCH_SIZE = 128
 REPLAY_SIZE = 10000
 
-USE_CUDA = torch.cuda.is_available()
+USE_CUDA = False#torch.cuda.is_available()
 
 #Reinforcement Learning parameters
 GAMMA = 1.0
 
-LEARNING_RATE = np.linspace(0,1,11)
-STATIC_EPS = np.linspace(0,1,11)
+LEARNING_RATE = np.linspace(0,1,2)
+STATIC_EPS = np.linspace(0,1,2)
 
 #EPS_START = 1.0
 #EPS_END = 0.01
@@ -328,6 +328,8 @@ def getFScore(model):
 # Training loop #
 #################
 FScoreArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
+WinArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
+OptimalMoveArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
 
 ai_eps_ind = -1
 for ai_eps in epsilon_rand:
@@ -338,7 +340,7 @@ for ai_eps in epsilon_rand:
         greedy_eps_ind = -1
         for greedy_eps in STATIC_EPS:
             greedy_eps_ind += 1
-            print ["TRAINING...", "AI Optimality:", ai_eps, "Learning Rate:", lr, "Exploration:", greedy_eps]
+            print ["TRAINING...", "AI Sub-Optimality:", ai_eps, "Learning Rate:", lr, "Epsilon Greedy:", greedy_eps]
             resetBoard()
             model = DQN()
             memory = ReplayMemory(REPLAY_SIZE)
@@ -381,7 +383,10 @@ for ai_eps in epsilon_rand:
             precision, recall, fscore = getFScore(model)
             print ["FScore:", fscore, "Precision:", precision, "Recall:", recall, "Win Percent:", winP, "Optimal Move Percent:", opMoveP]
             FScoreArray[ai_eps_ind, lr_ind, greedy_eps_ind] = fscore;
+            WinArray[ai_eps_ind, lr_ind, greedy_eps_ind] = winP;
+            OptimalMoveArray[ai_eps_ind, lr_ind, greedy_eps_ind] = opMoveP;
             sys.stdout.flush()
 
-save('./grid_fscores', FScoreArray)
-
+np.save('./grid_fscores', FScoreArray)
+np.save('./grid_win', WinArray)
+np.save('./grid_optimal', OptimalMoveArray)
