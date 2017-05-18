@@ -34,7 +34,7 @@ maxBits = len(bin(heapMax))
 epsilon_rand = np.linspace(0,1,4)
 
 #Network learning parameters, also look at DQN construction
-num_episodes = 50000
+num_episodes = 10000
 BATCH_SIZE = 128
 REPLAY_SIZE = 1000
 
@@ -320,7 +320,7 @@ def getFScore(model):
     precision = float(precisionCount)/totalPossibleStates
     recall = float(recallCount)/totalPossibleNimSumMoves
 
-    return 2*precision*recall/(precision+recall)
+    return precision, recall, 2*precision*recall/(precision+recall)
 
 #################
 # Training loop #
@@ -380,11 +380,12 @@ for ai_eps in epsilon_rand:
                     optimize_model()
                     if done:
                         if (i_episode % 1000 == 0):
-                            winP, opMoveP = test(ai_eps, lr, greedy_eps)
+                            winP, opMoveP = test(ai_eps, lr, 1.0)
                             print ["Epsiode", i_episode, winP, opMoveP]
                             sys.stdout.flush()
                         break
 
-            print ["FScore:", getFScore(model)]
+            precision, recall, fscore = getFScore(model)
+            print ["FScore:", fscore, "Precision:", precision, "Recall:", recall]
             sys.stdout.flush()
 
