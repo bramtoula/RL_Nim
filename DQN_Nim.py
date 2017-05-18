@@ -112,14 +112,14 @@ class DQN(nn.Module):
         #self.linear2 = nn.Linear(32, 32, True)
         #self.linear3 = nn.Linear(32, 32, True)
         self.linear4= nn.Linear(32, int(heaps*heapMax), True)
-    
+
         #self.linear1 = nn.Linear(int(heaps)*maxBits, 30, True)
         #self.linear2 = nn.Linear(30, 18, True)
         #self.linear3 = nn.Linear(18, 21, True)
         #self.linear4 = nn.Linear(21, 15, True)
         #self.linear5 = nn.Linear(15, 12, True)
         #self.linear6 = nn.Linear(12, int(heaps*heapMax), True)
-    
+
 
     def forward(self, x):
         #convert heaps to binart=y
@@ -134,7 +134,7 @@ class DQN(nn.Module):
         #    newX = newX + list(binaryRep)
         #x = Variable(torch.FloatTensor(newX))
         #x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
-        
+
         x = x.view(int(inputLength/heaps), int(heaps))
         x = F.relu(self.linear1(x))
         #x = F.relu(self.linear2(x))
@@ -172,7 +172,7 @@ def select_action(greedy_eps):
     sample = random.random()
         #eps_threshold = EPS_END + (EPS_START - EPS_END) * \
     #    math.exp(-1. * steps_done / EPS_DECAY)
-    
+
     eps_threshold = greedy_eps
     #exploration vs exploitation
     if sample > eps_threshold:
@@ -232,7 +232,7 @@ def test(ai_eps, lr, greedy_eps):
     num_eps = 10000
     win_count = 0
     lose_count = 0
-    
+
     total_moves = 0
     nimsum_moves = 0
     for i in range(num_eps):
@@ -246,11 +246,11 @@ def test(ai_eps, lr, greedy_eps):
             binNum = action/heapMax
             amount = (action%heapMax)+1
             heap[binNum] -= amount
-            
+
             total_moves += 1
             if nimSum(heap) == 0:
                 nimsum_moves += 1
-            
+
             done = isItEnd()
             if done:
                 win_count += 1
@@ -278,10 +278,10 @@ def getFScore(model):
                         continue
                     curHeap = [h1, h2, h3, h4]
                     heapTest = curHeap[:]
-                    
+
                     #Get best action for test test state for precision
                     QSA_for_actions = model(Variable(torch.FloatTensor(heapTest), volatile=True)).data.cpu()
-                    
+
                     curMax = -sys.maxint
                     curActionIndex = -1
                     index = 0
@@ -296,10 +296,10 @@ def getFScore(model):
                     binNum = curActionIndex/heapMax
                     amount = (curActionIndex%heapMax)+1
                     heapTest[binNum] -= amount
-                    
+
                     if (nimSum(heapTest) == 0):
                         precisionCount += 1;
-                    
+
                     #Get recall
                     heapTest = curHeap[:]
                     index = 0
@@ -316,7 +316,7 @@ def getFScore(model):
                                     recallCount += 1
                         heapTest = curHeap[:]
                         index += 1
-                    
+
     precision = float(precisionCount)/totalPossibleStates
     recall = float(recallCount)/totalPossibleNimSumMoves
 
@@ -345,7 +345,7 @@ for ai_eps in epsilon_rand:
                 firstAITurn = randint(0,1)
                 if (firstAITurn == 1):
                     computerMove(ai_eps);
-                
+
                 for t in count():
                     current_heap = heap[:]
                     action = select_action(greedy_eps)
@@ -353,7 +353,7 @@ for ai_eps in epsilon_rand:
                     binNum = action/heapMax
                     amount = (action%heapMax)+1
                     heap[binNum] -= amount
-                    
+
                     done = isItEnd()
                     reward = torch.Tensor([0])
                     #if nimSum() == 0:
@@ -388,4 +388,3 @@ for ai_eps in epsilon_rand:
             precision, recall, fscore = getFScore(model)
             print ["FScore:", fscore, "Precision:", precision, "Recall:", recall]
             sys.stdout.flush()
-

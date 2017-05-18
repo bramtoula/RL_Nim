@@ -11,15 +11,15 @@ from time import sleep
 # hyperparameters
 max_heap_nb = 5 # maximum number of heaps
 max_heap_size = 4   # maximum items in one heap
-H = 200 # number of hidden layer neurons # CHANGE
+H = 32 # number of hidden layer neurons # CHANGE
 batch_size = 10 # every how many episodes to do a param update?
-learning_rate = 1e-4
-gamma = 0.9 # discount factor for reward
+learning_rate = 1
+gamma = 0.3 # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
 render = False
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-epsilon = 0.4 # The opponent will play epsilon optimal
+epsilon = 0.5 # The opponent will play epsilon optimal
 
 heap = []
 originalHeap = []
