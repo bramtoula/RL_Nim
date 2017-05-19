@@ -7,23 +7,25 @@ import os
 import platform
 from time import sleep
 
-
+############################## CAN CHANGE ######################################
 # Fixed hyperparameters
 max_heap_nb = 4 # maximum number of heaps
 max_heap_size = 5   # maximum items in one heap
-H1 = 32 # number of hidden layer neurons
-H2 = 32
+H1 = 200 # number of first hidden layer neurons
+H2 = 200 # number of second hidden layer neurons
 batch_size = 10 # every how many episodes we update the parameters
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
 episodes_for_training = 10000 # Number of episodes used for training for each combination of tested parameters
 decay_rate = 0.99   # decay factor for RMSProp leaky sum of grad^2
 gamma = 0.99    # discount factor for reward
-number_hidden_layers = 1
+number_hidden_layers = 1 # can be 1 or 2
 
 # Parameters studied by grid search
 learning_rate_tested = np.linspace(0.0,1.0,11)
 opp_epsilon_tested = [0.0,0.33,0.66,1.0] # The opponent will play opp_epsilon optimal
 epsilon_tested = np.linspace(0.0,1.0,11) # Percentage of move the agent will take randomly
+
+############################## CAN CHANGE ######################################
 
 # Initialize variables
 heap = []
@@ -391,7 +393,7 @@ for j in range(len(opp_epsilon_tested)):
     plt.xlabel("Learning rate"); plt.ylabel("Epsilon (exploration term)")
     plt.title("Opponent optimal at {:.1f}%".format((1.-opp_epsilon_tested[j])*100.))
     plt.savefig('1_layer_opp_epsilon_'+str(opp_epsilon_tested[j])+'.pdf')
-    #plt.show() # UNCOMMENT TO SHOW PLOTS
+    plt.show() # COMMENT TO HIDE PLOTS
 
 index_best = np.unravel_index(np.argmax(optMoveFound_gridSearch), optMoveFound_gridSearch.shape)
 print "The optimal parameters are found to be:"

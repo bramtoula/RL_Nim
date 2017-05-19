@@ -8,24 +8,26 @@ import matplotlib.pyplot as plt
 from time import sleep
 
 
-# Fixed hyperparameters
+
+############################## CAN CHANGE ######################################
+# Hyperparameters
 max_heap_nb = 4 # maximum number of heaps
 max_heap_size = 5   # maximum items in one heap
-H1 = 32 # number of hidden layer neurons
-H2 = 32
+H1 = 200 # number of first hidden layer neurons
+H2 = 200 # number of first hidden layer neurons
 batch_size = 10 # every how many episodes we update the parameters
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-episodes_for_training = 1 # Number of episodes used for training for each combination of tested parameters
 decay_rate = 0.99   # decay factor for RMSProp leaky sum of grad^2
-gamma = 0.99    # discount factor for reward
-number_hidden_layers = 1 # Can only be 1 or 2
-learning_rate = 1.0
-opp_epsilon = 0.66 # The opponent will play opp_epsilon optimal
-epsilon = 0.1 # Percentage of move the agent will take randomly
+gamma = 0.99    #  [0;1] discount factor for reward
+number_hidden_layers = 1 # !!!!!  Can only be 1 or 2 !!!!!!
+learning_rate = 1.0 #
+opp_epsilon = 0.66  # The opponent will play opp_epsilon optimal
+epsilon = 0.1 #  Percentage of move the agent will take randomly
 
 # Parameters for the training and testing
 test_episode_nb = 100 # Number of episodes to run for test
 episode_max = 50000 # Maximum number of episodes
+############################## CAN CHANGE ######################################
 
 # Initialize variables
 heap = []
@@ -403,8 +405,8 @@ while True:
 
 # Plots
 plt.plot(testing_index, testing_results)
-plt.title("Winning rate of the agent")
+plt.title("Winning rate of the agent against optimal opponent")
 plt.xlabel("Run"); plt.ylabel("Games won [%]")
 plt.axis([0, episode_max, 0, 105]); plt.grid(True)
-# plt.show ## UNCOMMENT TO SHOW PLOT
-plt.savefig('testing.pdf')
+plt.show() ## COMMENT TO HIDE PLOT
+plt.savefig('testing.pdf') ## COMMENT TO NOT SAVE PLOT
