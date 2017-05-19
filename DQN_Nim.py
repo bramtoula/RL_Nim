@@ -16,12 +16,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.autograd as autograd
 from torch.autograd import Variable
+import matplotlib.pyplot as plt
 
 from collections import namedtuple
 from itertools import count
 from copy import deepcopy
 
-#---------------------Initialize Game-----------------#
+#######################################################
+#-----------Initialize Game Variables-----------------#
+#######################################################
 random.seed(52)
 #Game parameters and state globals
 heap = []
@@ -33,12 +36,12 @@ maxBits = len(bin(heapMax))
 #How random the AI we train against is
 epsilon_rand = np.linspace(0,1,4)
 
-#Network learning parameters, also look at DQN construction
+#Network learning parameters
 num_episodes = 10000
 BATCH_SIZE = 128
 REPLAY_SIZE = 10000
 
-USE_CUDA = False#torch.cuda.is_available()
+USE_CUDA = False
 
 #Reinforcement Learning parameters
 GAMMA = 1.0
@@ -46,13 +49,11 @@ GAMMA = 1.0
 LEARNING_RATE = np.linspace(0,1,11)
 STATIC_EPS = np.linspace(0,1,11)
 
-#EPS_START = 1.0
-#EPS_END = 0.01
-#EPS_DECAY = 500000
 
 
+######################################################
 #-------------GAME IMPLEMENTATION--------------------#
-
+######################################################
 def resetBoard():
     global heap
     global done
@@ -70,6 +71,7 @@ def nimSum(_heap):
 def winingHeap(_heap):
     return [x^nimSum(_heap) < x for x in _heap].index(True)
 
+#Computer with (sub)optimal strategy moves
 def computerMove(ai_eps):
     global heap
     #removes randomly from largest heap
@@ -83,10 +85,14 @@ def isItEnd():
     return all(z == 0 for z in heap)
 
 
+###############################################################
 #---------------DQN and Replay Memory Methods-----------------#
+###############################################################
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
+#Stores the memory of state, action and rewards in play history
+#We will sample from to construct our batch when training the network
 class ReplayMemory(object):
 
     def __init__(self, capacity):
@@ -107,53 +113,29 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
+#Our neural network used to represent the Q function
+#Here we use just 1 layer with 32 hidden neurons to perform our paramter grid search
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
         self.linear1 = nn.Linear(int(heaps), 32, True)
-        #self.linear2 = nn.Linear(32, 32, True)
-        #self.linear3 = nn.Linear(32, 32, True)
-        self.linear4= nn.Linear(32, int(heaps*heapMax), True)
-
-        #self.linear1 = nn.Linear(int(heaps)*maxBits, 30, True)
-        #self.linear2 = nn.Linear(30, 18, True)
-        #self.linear3 = nn.Linear(18, 21, True)
-        #self.linear4 = nn.Linear(21, 15, True)
-        #self.linear5 = nn.Linear(15, 12, True)
-        #self.linear6 = nn.Linear(12, int(heaps*heapMax), True)
-
+        self.linear2= nn.Linear(32, int(heaps*heapMax), True)
 
     def forward(self, x):
-        #convert heaps to binart=y
         inputLength = len(x)
-        #newX = []
-        #x_py = x.data.numpy();
-        #x_py = np.sort(x_py)
-        #for h in range(len(x_py)):
-        #    intval = int(x_py[h])
-        #    binaryRep = [int(digit) for digit in bin(intval)[2:]]
-        #    binaryRep = np.lib.pad(binaryRep, (maxBits-len(binaryRep),0), 'constant', constant_values=(0,0))
-        #    newX = newX + list(binaryRep)
-        #x = Variable(torch.FloatTensor(newX))
-        #x = x.view(int(inputLength/heaps), int(heaps)*maxBits)
-
         x = x.view(int(inputLength/heaps), int(heaps))
         x = F.relu(self.linear1(x))
-        #x = F.relu(self.linear2(x))
-        #x = F.relu(self.linear3(x))
-        x = F.relu(self.linear4(x))
+        x = F.relu(self.linear2(x))
         return x
 
 
-
 class Variable(autograd.Variable):
-
     def __init__(self, data, *args, **kwargs):
         if USE_CUDA:
             data = data.cuda()
         super(Variable, self).__init__(data, *args, **kwargs)
 
-
+#Returns the best action index given curHeap
 def getMaxValidAction(curHeap):
     curHeap = list(np.sort(curHeap))
     QSA_for_actions = model(Variable(torch.FloatTensor(curHeap), volatile=True)).data.cpu()
@@ -170,13 +152,10 @@ def getMaxValidAction(curHeap):
         index += 1
     return curActionIndex
 
-#Actions are defined as bin*heapMax+numPickedUp
+#Returns the action index, sometimes choosing a move randomly
 def select_action(greedy_eps):
     global heap
     sample = random.random()
-        #eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-    #    math.exp(-1. * steps_done / EPS_DECAY)
-
     eps_threshold = greedy_eps
     #exploration vs exploitation
     if sample > eps_threshold:
@@ -191,6 +170,7 @@ def select_action(greedy_eps):
         randNum = random.randrange(heap[randBin])
         return randBin*heapMax+randNum
 
+#The RL agent moves
 def agentMove(greedy_eps):
     global heap
     action = select_action(greedy_eps)
@@ -200,6 +180,7 @@ def agentMove(greedy_eps):
     heap = list(np.sort(heap))
     return action
 
+#Optimizes the weights of the neural network
 def optimize_model():
     if len(memory) < BATCH_SIZE:
         return
@@ -225,9 +206,9 @@ def optimize_model():
     next_state_values.volatile = False
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
-    # Compute Huber loss
+    # Compute loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
-    #print loss
+
     # Optimize the model
     optimizer.zero_grad()
     loss.backward()
@@ -237,9 +218,10 @@ def optimize_model():
 
 
 
-##################
-# Testing method #
-##################
+#################################################
+#---------------Testing Methods-----------------#
+#################################################
+#Play against an AI a bunch of times
 def test(ai_eps, lr, greedy_eps):
     num_eps = 10000
     win_count = 0
@@ -273,6 +255,8 @@ def test(ai_eps, lr, greedy_eps):
     return win_count/float(num_eps), nimsum_moves/float(total_moves)
 
 
+#Out of all the states where an optimal move is possible, return how many the
+#agent correctly chooses an optimal move
 def getOptimalMovePercentage(model):
     nimSumMovePossible = 0;
     nimSumMove = 0;
@@ -296,13 +280,46 @@ def getOptimalMovePercentage(model):
 
     return float(nimSumMove)/nimSumMovePossible;
 
-#################
-# Training loop #
-#################
-#FScoreArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
-#WinArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
+#Call this to calculate the percentage of times a completely random player would choose the optimal move
+#As in getOptimalMovePercentage, only considers game states where an optimal move is possible
+def getOptimalMovePercentageForRandom():
+    pRandomNimSum = 0
+    totalValidStates = 0;
+    for h0 in range(0, heapMax+1):
+        for h1 in range(h0, heapMax+1):
+            for h2 in range (h1, heapMax+1):
+                for h3 in range (h2, heapMax+1):
+                    curHeap = [h0, h1, h2, h3];
+                    if (sum(curHeap) == 0 or nimSum(curHeap) == 0):
+                        continue
+                    totalValidStates += 1
+                    
+                    movesPossible = 0;
+                    nimSumMovesPossible = 0;
+                    heapTest = curHeap[:]
+                    
+                    for index in range(heapMax*heaps):
+                        heapTest = curHeap[:]
+                        binNum = index/heapMax
+                        numPick = (index%heapMax)+1
+                        if heapTest[binNum] >= numPick:
+                            movesPossible += 1
+                            heapTest[binNum] -= numPick
+                            if (nimSum(heapTest) == 0):
+                                nimSumMovesPossible += 1
+                    pRandomNimSum += float(nimSumMovesPossible)/movesPossible;
+
+    return pRandomNimSum/totalValidStates
+
+
+
+#################################################
+#---------------Main Grid Seach-----------------#
+#################################################
+#print getOptimalMovePercentageForRandom()
 OptimalMoveArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
 
+#Perform grid search over parameter space and calculate percentage of optimal moves made for each resulting model
 ai_eps_ind = -1
 for ai_eps in epsilon_rand:
     ai_eps_ind += 1
@@ -322,6 +339,7 @@ for ai_eps in epsilon_rand:
                 model.cuda()
 
             actions_pushed = 0
+            #Run num_episode trials, optimizing the model after each trial
             for i_episode in range(1, num_episodes+1):
                 steps_done+=1
                 resetBoard()
@@ -338,15 +356,16 @@ for ai_eps in epsilon_rand:
                     else:
                         computerMove(ai_eps);
                         done = isItEnd();
-                        #won
                         if done:
                             reward = torch.Tensor([-10])
 
                     next_heap = torch.FloatTensor(heap[:])
                     if done:
                         next_heap = None
+                    
+                    #push state, action and reward into memory
                     memory.push(torch.FloatTensor(current_heap), torch.LongTensor([[action]]), next_heap, torch.FloatTensor(reward))
-                    # Perform one step of the optimization (on the target network)
+                    # Perform one step of the optimization
                     optimize_model()
                     if done:
                         break
@@ -354,11 +373,21 @@ for ai_eps in epsilon_rand:
             #winP, opMoveP = test(ai_eps, lr, 1.0)
             opMoveP = getOptimalMovePercentage(model)
             print ["Optimal Move Percent:", opMoveP]
-            #FScoreArray[ai_eps_ind, lr_ind, greedy_eps_ind] = fscore;
-            #WinArray[ai_eps_ind, lr_ind, greedy_eps_ind] = winP;
             OptimalMoveArray[ai_eps_ind, lr_ind, greedy_eps_ind] = opMoveP;
             sys.stdout.flush()
 
-#np.save('./grid_fscores', FScoreArray)
-#np.save('./grid_win', WinArray)
 np.save('./grid_optimal', OptimalMoveArray)
+
+
+###############################################
+#-----------Plot the results array------------#
+###############################################
+##Uncomment to plot results
+#np.load('./grid_optimal.npy', OptimalMoveArray)
+#for i in range(len(epsilon_rand)):
+#    plt.imshow(OptimalMoveArray[i,:,:].T, origin='lower', extent=(LEARNING_RATE[0], LEARNING_RATE[-1], STATIC_EPS[0], STATIC_EPS[-1]), \
+               vmin=0., vmax=1., interpolation='none', cmap='hot')
+#    cbar = plt.colorbar(); cbar.set_label("Optimality Measure");
+#    plt.xlabel("Step size (alpha)"); plt.ylabel("Epsilon (for the learning policy)")
+#    plt.title("Opponent optimal at {:.1f}%".format((1.-epsilon_rand[i])*100.))
+#    plt.show()
