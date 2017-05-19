@@ -1,8 +1,7 @@
-""" Trains an agent with (stochastic) Policy Gradients on Pong. Uses OpenAI Gym. """
+""" Trains an agent with (stochastic) Policy Gradients on Nim. """
 import numpy as np
 import matplotlib.pyplot as plt
 import cPickle as pickle
-import gym
 import random
 import os
 import platform
