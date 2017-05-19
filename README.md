@@ -1,7 +1,24 @@
 # RL_Nim
+##Python##
+
+The code is written in **Python2**
 
 ## Temporal-Difference Learning
+##Installation##
 
+a) The code requires the packages "matplotlib" and "numpy" to be installed. If needed, run "*pip install matplotlib*" and "*pip install     numpy*" (it may be possible that pip needs upgrading. If so, run "*pip install --upgrade pip*" beforehand). 
+
+b) To run the scripts, you will need jupyter notebook. To install it, run "*pip install jupyter*"
+
+**NOTA BENE**: On windows the commands will rather be like this: "*python -m pip install package_name*"
+
+##Running TD-learning##
+
+a) Once everything is installed, open a terminal and go in the folder where the jupyter notebook (.ipynb) are. Then type "*jupyter notebook*" to launch the notebook (a new page on your internet navigator will open after a while). From there you will be able to select a notebook to open.
+
+b) There are two notebook: "TD_main.ipynb" which contains the main code for the learning (you'll be able to make an agent learn, then do some plots to evaluate it, and even play against it), and "TD_gridSearch.ipynb" which contains the code needed to perform the grid search on the parameters.
+
+c) Once inside the notebook, you can run code-block by code-block the code by clicking in the block and pressing "Ctrl"+"Enter"
 
 ## Deep Reinforcement Learning
 Results for Deep Q-Learning and Deep Policy Gradient are not as convincing as Q-Learning. However, you can run our implementations by following the instructions below:
