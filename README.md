@@ -6,8 +6,12 @@
 Results for Deep Q-Learning and Deep Policy Gradient are not as convincing as Q-Learning. However, you can run our implementations by following the instructions below:
 
 ##Running Deep Q-Learning##
+
+
 a) Make sure you have pytorch installed. You can go to http://pytorch.org/ for instructions. The installation command is specific to your machine!
+
 b) You will also need run "pip install matplotlib" if you do not already have the package installed.
+
 c) run "python DQN_Nim.py", the script will perform a parameter grid search over the method.
     You can adjust parameters at the top of the script.
     You can plot the output of the grid search by uncommenting the code at the bottom of the script.
