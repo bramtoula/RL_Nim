@@ -35,3 +35,16 @@
 - From a terminal, run:
     - "*python PG_Nim.py*" : Launches a script that trains an agent for a while, and then plots its winning rate during the learning. Inside the file, the parameters between the lines "###### CAN CHANGE #####" may be manually tuned.
     - "*python PG_gridSearch*" : Launches a script that performs a grid search. The agent trains for a while, then the optimality measure will be plotted depending on his learning rate, his exploratory term, and the opponent's randomness. Inside the file, the parameters between the lines "###### CAN CHANGE #####" may be manually tuned.
+
+## Acknowledgements
+
+> The code for the **Q-Learning** has been adapted from the work of: 
+
+Lord, William, and Paul Graham. Reinforcement Learning and the Game of Nim, 2015. 
+http://www.diva-portal.org/smash/record.jsf?pid=diva2:814832.
+
+
+> The code for the **Deep Policy Gradient** has been adapted from the work of:
+
+Karpathy, A. (2016, May 31). Deep Reinforcement Learning: Pong from Pixels [Web log post]. 
+Retrieved from http://karpathy.github.io/2016/05/31/rl/
