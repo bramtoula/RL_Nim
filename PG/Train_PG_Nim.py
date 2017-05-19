@@ -9,28 +9,37 @@ import matplotlib.pyplot as plt
 from time import sleep
 
 
-# hyperparameters
-max_heap_nb = 5 # maximum number of heaps
-max_heap_size = 4   # maximum items in one heap
-H = 32 # number of hidden layer neurons # CHANGE
-batch_size = 10 # every how many episodes to do a param update?
-learning_rate = 1
-gamma = 0.3 # discount factor for reward
-decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
-resume = False # resume from previous checkpoint?
-render = False
+# Fixed hyperparameters
+max_heap_nb = 4 # maximum number of heaps
+max_heap_size = 5   # maximum items in one heap
+H1 = 32 # number of hidden layer neurons
+H2 = 32
+batch_size = 10 # every how many episodes we update the parameters
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-opp_epsilon = 1.0 # The opponent will play epsilon optimal
+episodes_for_training = 1 # Number of episodes used for training for each combination of tested parameters
+decay_rate = 0.99   # decay factor for RMSProp leaky sum of grad^2
+gamma = 0.99    # discount factor for reward
+number_hidden_layers = 1 # Can only be 1 or 2
+learning_rate = 1.0
+opp_epsilon = 0.66 # The opponent will play opp_epsilon optimal
 epsilon = 0.1 # Percentage of move the agent will take randomly
+
+# Parameters for the training and testing
 test_episode_nb = 100 # Number of episodes to run for test
+episode_max = 50000 # Maximum number of episodes
+
+# Initialize variables
 heap = []
 originalHeap = []
 heapNb = 0
 heapMax = 0
 testing_results = []
 testing_index = []
-episode_max = int(50000) # Maximum number of episodes
-# Functions from original Nim
+
+resume = False # resume from previous checkpoint
+render = False
+
+############### Function declarations####################
 
 # Define the command to clear the terminal (depends on the os...)
 if platform.system() == 'Windows':
@@ -50,6 +59,7 @@ def defineBoard():
     print "Let's start by defining our game:"
 
     randomHeap = 'y' == raw_input("Do you want the heaps to be random during learning ? (y/n)")
+    # If not random, enter the board
     if not randomHeap:
         heapNb = raw_input("Enter number of heaps you want: ")
         heapNb = int(heapNb)
@@ -59,6 +69,7 @@ def defineBoard():
         heap = fillHeapZeros(heap)
         originalHeap = list(heap)
 
+    # Random initialization
     else:
         heap = defineRandomBoard()
     heap = sortHeap(heap)
@@ -101,37 +112,14 @@ def nimSum():
 def winningHeap():
     return [x^nimSum() < x for x in heap].index(True)
 
-def userMove():
-    row, num = raw_input("Enter row and num of matches you want to take separated with space ex.(1 2):  ").split()
-    row, num = int(row)-1,int(num)
-
-    try:
-        if row <= -1: raise
-        if num>0 and num<=heap[row]:
-            heap[row]-=num
-            printBoard(heap)
-        else:
-            printBoard(heap)
-            print "WRONG NUMBER TRY AGAIN"
-            userMove()
-    except:
-        printBoard(heap)
-        print "WRONG ROW TRY AGAIN"
-        userMove()
-    if isItEnd(): print "YOU WIN"
-
-
-
 def computerMove():
     if opp_epsilon > random.uniform(0, 1): # random move
         randomMove()
-
     else:
         if nimSum() == 0: # optimal move
             randomMove()
         else:
             heap[winningHeap()]^=nimSum()
-
 
 # Returns the modified heap after a random play
 def randomMove():
@@ -150,27 +138,6 @@ def randomMove():
 def isItEnd():
     return all(z == 0 for z in heap)
 
-
-
-defineBoard()
-if binary_input:
-    D = max_heap_nb*3 #CHANGE # input dimensionality: number of heapNb (in binary)
-else:
-    D = max_heap_nb
-agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
-
-# model initialization
-
-if resume:
-    model = pickle.load(open('save.p', 'rb'))
-else:
-    model = {}
-    model['W1'] = np.random.randn(H,D) / np.sqrt(D) # "Xavier" initialization
-    model['W2'] = np.random.randn(H,max_heap_nb*max_heap_size) / np.sqrt(H)
-
-grad_buffer = { k : np.zeros_like(v) for k,v in model.iteritems() } # update buffers that add up gradients over a batch
-rmsprop_cache = { k : np.zeros_like(v) for k,v in model.iteritems() } # rmsprop memory
-
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x)) # sigmoid "squashing" function to interval [0,1]
 
@@ -185,6 +152,7 @@ def discount_rewards(r):
         discounted_r[t] = running_add
     return discounted_r
 
+# Given an array of heaps, will return a vector representing the board with binary values
 def heap_to_binary(heap):
     x_bin = []
     for i in range (0,max_heap_nb):
@@ -197,24 +165,73 @@ def heap_to_binary(heap):
             x_bin = np.append(x_bin,temp)
     return x_bin
 
+# Computes forward pass of the model with given input x
 def policy_forward(x):
     # Convert heaps in binary
-    h = np.dot(model['W1'], x)
-    h[h<0] = 0 # ReLU nonlinearity
-    logp = np.dot(model['W2'].T, h)
-    p = sigmoid(logp)
-    return p, h # return probability of taking action 2, and hidden state
+    if number_hidden_layers == 1:
+        h1 = np.dot(model['W1'], x)
+        h1[h1<0] = 0 # ReLU nonlinearity
+        logp = np.dot(model['W2'].T, h1)
+        p = sigmoid(logp)
+        return p, h1 # return probability of taking action 2, and hidden state
+    elif number_hidden_layers == 2:
+        h1 = np.dot(model['W1'], x)
+        h1[h1<0] = 0 # ReLU nonlinearity
+        h2 = np.dot(model['W2'],h1)
+        logp = np.dot(model['W3'].T, h2)
+        p = sigmoid(logp)
+        return p, h1, h2 # return probability of taking action 2, and hidden state
 
-def policy_backward(eph, epdlogp):
-    """ backward pass. (eph is array of intermediate hidden states) """
+def policy_backward(eph1,eph2,epdlogp):
+    """ backward pass. (eph1 is array of intermediate hidden states) """
     # dW2 = np.dot(eph.T, epdlogp).ravel()
-    dW2 = np.dot(eph.T, epdlogp)
-    dh = np.dot(epdlogp, model['W2'].T)
-    dh[eph <= 0] = 0 # backpro prelu
-    dW1 = np.dot(dh.T, epx)
-    return {'W1':dW1, 'W2':dW2}
+    if number_hidden_layers == 1:
+        dW2 = np.dot(eph1.T, epdlogp)
+        dh = np.dot(epdlogp, model['W2'].T)
+        dh[eph1 <= 0] = 0 # backpro prelu
+        dW1 = np.dot(dh.T, epx)
+        return {'W1':dW1, 'W2':dW2}
+    elif number_hidden_layers == 2:
+        dW3 = np.dot(eph2.T, epdlogp)
+        dh2 = np.dot(epdlogp, model['W3'].T)
+        dh2[eph2 <= 0] = 0 # backpro prelu
+        dW2 = np.dot(dh2.T,eph1)
+        dh1 = np.dot(dh2,model['W2'].T) # not sure
+        dh1[eph1 <= 0] = 0 # backpro prelu
+        dW1 = np.dot(dh1.T, epx)
+        return {'W1':dW1, 'W2':dW2, 'W3':dW3}
 
-xs,hs,dlogps,drs = [],[],[],[]
+############### Main program ####################
+defineBoard()
+# Adapt dimensions of input
+if binary_input:
+    D = max_heap_nb*3 #CHANGE # input dimensionality: number of heapNb (in binary)
+else:
+    D = max_heap_nb
+
+# Define first turn randomly
+agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
+
+# Initialize randomly the network or reuse a previous one
+if resume:
+    model = pickle.load(open('save.p', 'rb'))
+else:
+    if number_hidden_layers == 1:
+        model = {}
+        model['W1'] = np.random.randn(H1,D) / np.sqrt(D) # "Xavier" initialization
+        model['W2'] = np.random.randn(H1,max_heap_nb*max_heap_size) / np.sqrt(H1)
+    elif number_hidden_layers == 2:
+        model = {}
+        model['W1'] = np.random.randn(H1,D) / np.sqrt(D) # "Xavier" initialization
+        model['W2'] = np.random.randn(H1,H2) / np.sqrt(H2) # "Xavier" initialization
+        model['W3'] = np.random.randn(H2,max_heap_nb*max_heap_size) / np.sqrt(H2)
+
+grad_buffer = { k : np.zeros_like(v) for k,v in model.iteritems() } # update buffers that add up gradients over a batch
+rmsprop_cache = { k : np.zeros_like(v) for k,v in model.iteritems() } # rmsprop memory
+
+
+
+xs,h1s,h2s,dlogps,drs = [],[],[],[],[]
 running_reward = None
 computerWin = False
 playerWin = False
@@ -223,33 +240,34 @@ episode_number = 0
 
 while True:
     if render: printBoard(heap)
-
-    # preprocess the observation, set input to network to be difference image
-    # forward the policy network and sample an action from the returned probability
-        # step the environment and get new measurements
-
     if not agentTurn: # computer turn
         computerMove()
-        #   if max(heap) == 1:
-        #     heap[heap.index(max(heap))]-= 1
-        #   if max(heap) > 1:
-        #     heap[heap.index(max(heap))]-=random.randint(1,max(heap)) # Change to total random play
         heap = sortHeap(heap)
         agentTurn = True
         continue
 
+    # Define input format
     if binary_input:
         x = heap_to_binary(heap)
     else:
         x = list(heap)
+
     reward = 0.0
     computerWin = isItEnd()
-    aprob, h = policy_forward(x)
-    xs.append(x) # observation
-    hs.append(h) # hidden state
-    if epsilon > random.uniform(0, 1): # random move
-        play = randomMove()
+    if number_hidden_layers == 1:
+        aprob, h1 = policy_forward(x)
     else:
+        aprob, h1, h2 = policy_forward(x)
+
+    xs.append(x) # Observation
+    h1s.append(h1) # Hidden state
+    if number_hidden_layers == 2:
+        h2s.append(h2)
+
+    if epsilon > random.uniform(0, 1): # random play (epsilon greedy)
+        play = randomMove()
+    else:   # Normal play
+        # Search for chosen action
         play = 0
         for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
             actionRemoveIndex = int(i)/int(max_heap_size)
@@ -283,13 +301,13 @@ while True:
     if done: # an episode finished
         episode_number += 1
         # stack together all inputs, hidden states, action gradients, and rewards for this episode
-        #epx = np.vstack(xs)
-        #eph = np.vstack(hs)
         epx = np.vstack(xs)
-        eph = np.vstack(hs)
+        eph1 = np.vstack(h1s)
+        if number_hidden_layers == 2:
+            eph2 = np.vstack(h2s)
         epdlogp = np.vstack(dlogps)
         epr = np.vstack(drs)
-        xs,hs,dlogps,drs = [],[],[],[] # reset array memory
+        xs,h1s,h2s,dlogps,drs = [],[],[],[],[] # reset array memory
         # compute the discounted reward backwards through time
         discounted_epr = discount_rewards(epr)
 
@@ -297,7 +315,11 @@ while True:
         discounted_epr -= np.mean(discounted_epr)
         discounted_epr /= np.std(discounted_epr)
         epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
-        grad = policy_backward(eph, epdlogp)
+        if number_hidden_layers == 1:
+            grad = policy_backward(eph1,0,epdlogp)
+        elif number_hidden_layers == 2:
+            grad = policy_backward(eph1,eph2,epdlogp)
+
         for k in model: grad_buffer[k] += grad[k] # accumulate grad over batch
 
         # perform rmsprop parameter update every batch_size episodes
@@ -314,8 +336,11 @@ while True:
             pickle.dump(model, open('save.p', 'wb'))
             print 'resetting env. episode reward total was %f. running mean: %f' % (reward_sum, running_reward)
 
-        # Test the model every 100 episodes
+        # Test the model every test_episode_nb episodes
         if episode_number % test_episode_nb == 0:
+            store_opp_epsilon = opp_epsilon # Store initial opp_epsilon value to restore it later
+            opp_epsilon = 0.0
+            # Store episode number associated to testing result
             testing_index.append(episode_number)
             win_number = 0.0
             for __ in range (test_episode_nb):
@@ -323,8 +348,7 @@ while True:
                 playerWin = False
                 heap = defineRandomBoard()
                 heap = sortHeap(heap)
-                agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
-
+                agentTurn = bool(random.getrandbits(1)) #
                 while True:
                     if not agentTurn: # computer turn
                         computerMove()
@@ -332,9 +356,13 @@ while True:
                         agentTurn = True
                         continue
 
+                    # Check if computer won previous turn
                     computerWin = isItEnd()
                     x = list(heap)
-                    aprob, h = policy_forward(x)
+                    if number_hidden_layers == 1:
+                        aprob,h1 = policy_forward(x)
+                    elif number_hidden_layers == 2:
+                        aprob,h1,h2 = policy_forward(x)
                     play = 0
                     for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
                         actionRemoveIndex = int(i)/int(max_heap_size)
@@ -342,6 +370,7 @@ while True:
                         if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
                             play = i
 
+                    # Play greedy
                     if not computerWin:
                         actionRemoveIndex = int(play)/int(max_heap_size)
                         actionRemoveNb = int(play)%int(max_heap_size)+1
@@ -351,9 +380,10 @@ while True:
                         agentTurn = False
                     done = playerWin or computerWin
                     if done:
-                        if playerWin:
+                        if playerWin: # Store number of wins
                             win_number += 1.0
                         break;
+            opp_epsilon = store_opp_epsilon # Restore opponent epsilon value
             testing_results.append(win_number)
         computerWin = False
         playerWin = False
@@ -368,11 +398,14 @@ while True:
     if reward != 0 and (episode_number % 1000 == 0) : # Nim has either +1 or -1 reward exactly when game ends.
         print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
 
+    # Stop at max episode defined
     if (episode_number == episode_max):
         break;
+
+# Plots
 plt.plot(testing_index, testing_results)
-plt.title("Win rate")
-plt.xlabel("Run"); plt.ylabel("%")
+plt.title("Winning rate of the agent")
+plt.xlabel("Run"); plt.ylabel("Games won [%]")
 plt.axis([0, episode_max, 0, 105]); plt.grid(True)
-# plt.show
+# plt.show ## UNCOMMENT TO SHOW PLOT
 plt.savefig('testing.pdf')
