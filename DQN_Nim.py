@@ -114,12 +114,12 @@ class ReplayMemory(object):
         return len(self.memory)
 
 #Our neural network used to represent the Q function
-#Here we use just 1 layer with 32 hidden neurons to perform our paramter grid search
+#Here we use just 1 layer with 200 hidden neurons to perform our paramter grid search
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
-        self.linear1 = nn.Linear(int(heaps), 32, True)
-        self.linear2= nn.Linear(32, int(heaps*heapMax), True)
+        self.linear1 = nn.Linear(int(heaps), 200, True)
+        self.linear2= nn.Linear(200, int(heaps*heapMax), True)
 
     def forward(self, x):
         inputLength = len(x)
@@ -382,12 +382,11 @@ np.save('./grid_optimal', OptimalMoveArray)
 ###############################################
 #-----------Plot the results array------------#
 ###############################################
-##Uncomment to plot results
-#np.load('./grid_optimal.npy', OptimalMoveArray)
-#for i in range(len(epsilon_rand)):
-#    plt.imshow(OptimalMoveArray[i,:,:].T, origin='lower', extent=(LEARNING_RATE[0], LEARNING_RATE[-1], STATIC_EPS[0], STATIC_EPS[-1]), \
+OptimalMoveArray = np.load('./grid_optimal.npy')
+for i in range(len(epsilon_rand)):
+    plt.imshow(OptimalMoveArray[i,:,:].T, origin='lower', extent=(LEARNING_RATE[0], LEARNING_RATE[-1], STATIC_EPS[0], STATIC_EPS[-1]), \
                vmin=0., vmax=1., interpolation='none', cmap='hot')
-#    cbar = plt.colorbar(); cbar.set_label("Optimality Measure");
-#    plt.xlabel("Step size (alpha)"); plt.ylabel("Epsilon (for the learning policy)")
-#    plt.title("Opponent optimal at {:.1f}%".format((1.-epsilon_rand[i])*100.))
-#    plt.show()
+    cbar = plt.colorbar(); cbar.set_label("Optimality Measure");
+    plt.xlabel("Step size (alpha)"); plt.ylabel("Epsilon (for the learning policy)")
+    plt.title("Opponent optimal at {:.1f}%".format((1.-epsilon_rand[i])*100.))
+    plt.show()
