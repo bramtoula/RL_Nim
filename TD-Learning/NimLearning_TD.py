@@ -27,7 +27,7 @@ def init_board():
     for i in range(len(board_ini)):
         board[i] = rnd.randint(0,board_ini[i])
     board.sort()
-    
+
     if board[-1] == 0:
         return init_board()
     return board
@@ -56,9 +56,9 @@ for run in range(runMax):
     if (run+1) % 1000 == 0:
         clear_output()
         print("run   : {0}/{1}\n".format(run+1, runMax))
-    
+
     board = init_board()
-    
+
     # randomly choose the first player
     agentIsFirst = rnd.randint(0,1)
     if agentIsFirst == False:
@@ -66,7 +66,7 @@ for run in range(runMax):
         if board == board_end:
             learning_win.append(-1)
             continue
-    
+
     # move until the end of the current game
     while True:
         agent.move(board)
@@ -74,15 +74,15 @@ for run in range(runMax):
             agent.winUpdate()
             learning_win.append(1)
             break
-        
+
         oppLearning.move(board)
         if board == board_end:
             agent.loseUpdate()
             learning_win.append(-1)
             break
-            
+
         agent.updateQ(board)
-    
+
     ### Test the agent every 100 runs on 100 more runs
     # Using greedy policy
     if (run+1) % 100 == 0:
@@ -100,35 +100,35 @@ for run in range(runMax):
                 before = 0
                 for i in range(len(board)):
                     before ^= board[i]
-            
+
             while True:
                 before = 0
                 for i in range(len(board)):
                     before ^= board[i]
                 if before != 0:
                     optMovePossible += 1
-                    
+
                 agent.greedyMove(board)
-               
+
                 after = 0
                 for i in range(len(board)):
                     after ^= board[i]
                 if after == 0:
                     optMoveMade += 1
-                
+
                 if board == board_end:
                     wins += 1.
                     break
-                
+
                 oppOptimal.move(board)
                 if board == board_end:
                     wins += 0.
                     break
-        
+
         greedy_win.append(wins)
         optimalMoves.append(optMoveMade/optMovePossible*100)
         optimalMoves_runNb.append(run)
-        
+
         # Compute current F-Score
         # For each possible actions see if it's optimal and check if the agent
         # considers it as optimal
@@ -141,12 +141,12 @@ for run in range(runMax):
                 for action in range(1,1+board[heap]):
                     temp_board = list(board)
                     temp_board[heap] -= action
-                              
+
                     nimSum = 0
                     for i in range(len(temp_board)):
                         nimSum ^= temp_board[i]
-                    
-                    
+
+
                     a = agent.actions.index([heap,action])
                     if nimSum == 0:
                         optMove_P += 1.
@@ -154,7 +154,7 @@ for run in range(runMax):
                             optMove_TP += 1.
                     elif agent.Q[s][a] >= 0.9:
                         optMove_FP += 1.
-        
+
         optMoveFound_Recall.append(optMove_TP/optMove_P)
         if optMove_TP+optMove_FP == 0:
             optMoveFound_Precision.append(0.)
@@ -178,11 +178,11 @@ for i in range(len(learning_win)):
     startIndex = i - half_window
     if startIndex < 0:
         startIndex = 0
-        
+
     endIndex = i + half_window + 1
     if endIndex > len(learning_win):
         endIndex = len(learning_win)
-    
+
     learning_win_ave.append(float(sum(learning_win[startIndex:endIndex])) / (len(learning_win[startIndex:endIndex])))
 # Learning curve
 plt.plot(learning_win_ave)
@@ -203,14 +203,14 @@ plt.plot(optimalMoves_runNb, optimalMoves)
 plt.title("Optimal moves rate")
 plt.xlabel("Run"); plt.ylabel("Optimal move done [%]")
 plt.axis([0, runMax, 0, 105]); plt.grid(True)
-plt.show() 
+plt.show()
 
 # F-measure (after greedization)
 plt.plot(optMoveFound_runNb, optMoveFound_F)
 plt.title("F-measure")
 plt.xlabel("Run"); plt.ylabel("F-score")
 plt.axis([0, runMax, 0, 1.05]); plt.grid(True)
-plt.show()     
+plt.show()
 
 
 ########## Test of the agent after learning ##########
@@ -221,13 +221,13 @@ optMove = 0
 optDone = 0
 for i in range(trials):
     board = init_board()
-        
+
     agentIsFirst = rnd.randint(0,1)
     if agentIsFirst == False:
         oppOptimal.move(board)
         if board == board_end:
             continue
-    
+
     before = 0
     for i in range(len(board)):
         before ^= board[i]
@@ -239,19 +239,19 @@ for i in range(trials):
             before ^= board[i]
         if before != 0:
             optMove += 1
-            
+
         agent.greedyMove(board)
-       
+
         after = 0
         for i in range(len(board)):
             after ^= board[i]
         if after == 0:
             optDone += 1
-        
+
         if board == board_end:
             wins += 1
             break
-        
+
         oppOptimal.move(board)
         if board == board_end:
             break
@@ -272,12 +272,12 @@ for s in agent.states:
         for action in range(1,1+board[heap]):
             temp_board = list(board)
             temp_board[heap] -= action
-                      
+
             nimSum = 0
             for i in range(len(temp_board)):
                 nimSum ^= temp_board[i]
-            
-            
+
+
             a = agent.actions.index([heap,action])
             if nimSum == 0:
                 optMove_P += 1.
@@ -299,7 +299,7 @@ else:
 
 print "\nIf we consider the problem as a classification where the agent has " + \
        "to classify optimal moves from the others, we can use the F-measure " + \
-       "to evaluate the learning of our agent:\n"           
+       "to evaluate the learning of our agent:\n"
 print "Recall = {:.3f}".format(optMoveFound_Recall)
 print "Precision = {:.3f}".format(optMoveFound_Precision)
 print "F-Score = {:.3f}".format(optMoveFound_F)
@@ -312,10 +312,10 @@ wantToPlay = True
 
 while wantToPlay:
     print "--------------\nNim - New game\n--------------\n"
-    
+
     print "Let's start by defining our game:"
     print "There are {} heaps, but some of them might be empty.".format(len(board_ini))
-    
+
     # Create the board
     board = []
     for x in range(len(board_ini)):
@@ -329,21 +329,21 @@ while wantToPlay:
         board.append(num)
     while len(board) < len(board_ini):
         board.append(0)
-    
+
     if board == board_end:
         clear_output()
         print "The board cannot be empty! Let's restart..."
         sleep(1.3)
         continue
-    
+
     clear_output()
     print "Note that the board will be sorted after each move."
     print "Current board: {}\n".format(board)
     board.sort()
     print "Sorted board: {}\n".format(board)
-    
+
     userStart = raw_input("Do you want to start? (y/n)\n")
-    
+
     if userStart.startswith('n') or userStart.startswith('N'):
         print "The agent moves..."
         sleep(1.3)
@@ -361,7 +361,7 @@ while wantToPlay:
     else:
         clear_output()
         print "Current board: {}\n".format(board)
-    
+
     # Moves until the end of the game
     while True:
         userMove = True
@@ -375,23 +375,23 @@ while wantToPlay:
                     print "That was no valid number.  Try again..."
             heap = int(heap)-1
             num = int(num)
-            
+
             if heap < 0 or heap >= len(board):
                 print "Wrong heap! Try again"
                 continue
             if num < 1 or num > board[heap]:
                 print "Wrong number! Try again"
                 continue
-            
+
             board[heap] -= num
             board.sort()
             userMove = False
-        
+
         clear_output()
         if board == board_end:
             print "You won !"
             break
-        
+
         print "Current board: {}\n".format(board)
         print "The agent moves..."
         sleep(1.3)
@@ -401,52 +401,10 @@ while wantToPlay:
         if board == board_end:
             print "You lost..."
             break
-        
+
     # Replay ?
     wantToPlay = raw_input("Do you want to play again? (y/n)")
     if wantToPlay.startswith('y') or userStart.startswith('Y'):
         wantToPlay = True
     else:
         wantToPlay = False
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

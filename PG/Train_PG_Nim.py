@@ -5,6 +5,7 @@ import gym
 import random
 import os
 import platform
+import matplotlib.pyplot as plt
 from time import sleep
 
 
@@ -19,13 +20,16 @@ decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
 render = False
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-epsilon = 0.5 # The opponent will play epsilon optimal
-
+opp_epsilon = 1.0 # The opponent will play epsilon optimal
+epsilon = 0.1 # Percentage of move the agent will take randomly
+test_episode_nb = 100 # Number of episodes to run for test
 heap = []
 originalHeap = []
 heapNb = 0
 heapMax = 0
-
+testing_results = []
+testing_index = []
+episode_max = int(50000) # Maximum number of episodes
 # Functions from original Nim
 
 # Define the command to clear the terminal (depends on the os...)
@@ -119,15 +123,29 @@ def userMove():
 
 
 def computerMove():
-    if epsilon > random.uniform(0, 1): # random move
-        heap[np.argmax(heap)]-=random.randint(1,max(heap))
+    if opp_epsilon > random.uniform(0, 1): # random move
+        randomMove()
+
     else:
         if nimSum() == 0: # optimal move
-            heap[np.argmax(heap)]-=random.randint(1,max(heap))
+            randomMove()
         else:
             heap[winningHeap()]^=nimSum()
 
 
+# Returns the modified heap after a random play
+def randomMove():
+    global heap
+    if np.amax(heap) == 0:
+        return 0
+    while True:
+        play = random.randint(0,max_heap_nb*max_heap_size-1)
+        actionRemoveIndex = int(play)/int(max_heap_size)
+        actionRemoveNb = int(play)%int(max_heap_size)+1
+        if heap[actionRemoveIndex] >= actionRemoveNb:
+            heap[actionRemoveIndex] -= actionRemoveNb
+            heap = sortHeap(heap)
+            return play
 
 def isItEnd():
     return all(z == 0 for z in heap)
@@ -202,8 +220,8 @@ computerWin = False
 playerWin = False
 reward_sum = 0
 episode_number = 0
-while True:
 
+while True:
     if render: printBoard(heap)
 
     # preprocess the observation, set input to network to be difference image
@@ -229,26 +247,28 @@ while True:
     aprob, h = policy_forward(x)
     xs.append(x) # observation
     hs.append(h) # hidden state
-    finish = False
+    if epsilon > random.uniform(0, 1): # random move
+        play = randomMove()
+    else:
+        play = 0
+        for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
+            actionRemoveIndex = int(i)/int(max_heap_size)
+            actionRemoveNb = int(i)%int(max_heap_size)+1
+            if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
+                play = i
 
-    play = 0
-    for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
-        actionRemoveIndex = int(i)/int(max_heap_size)
-        actionRemoveNb = int(i)%int(max_heap_size)+1
-        if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
-            play = i
+        if not computerWin:
+            actionRemoveIndex = int(play)/int(max_heap_size)
+            actionRemoveNb = int(play)%int(max_heap_size)+1
+            heap[actionRemoveIndex] -= actionRemoveNb
+            heap = sortHeap(heap)
+            playerWin = isItEnd()
+            agentTurn = False
 
     y = np.zeros(len(aprob))
     y[play] = 1.0
 
     dlogps.append(y - aprob) # grad that encourages the action that was taken to be taken (see http://cs231n.github.io/neural-networks-2/#losses if confused)
-    if not computerWin:
-        actionRemoveIndex = int(play)/int(max_heap_size)
-        actionRemoveNb = int(play)%int(max_heap_size)+1
-        heap[actionRemoveIndex] -= actionRemoveNb
-        heap = sortHeap(heap)
-        playerWin = isItEnd()
-        agentTurn = False
 
     done = playerWin or computerWin
     if computerWin:
@@ -262,8 +282,6 @@ while True:
     reward_sum += reward
     if done: # an episode finished
         episode_number += 1
-        computerWin = False
-        playerWin = False
         # stack together all inputs, hidden states, action gradients, and rewards for this episode
         #epx = np.vstack(xs)
         #eph = np.vstack(hs)
@@ -296,8 +314,50 @@ while True:
             pickle.dump(model, open('save.p', 'wb'))
             print 'resetting env. episode reward total was %f. running mean: %f' % (reward_sum, running_reward)
 
-        reward_sum = 0
+        # Test the model every 100 episodes
+        if episode_number % test_episode_nb == 0:
+            testing_index.append(episode_number)
+            win_number = 0.0
+            for __ in range (test_episode_nb):
+                computerWin = False
+                playerWin = False
+                heap = defineRandomBoard()
+                heap = sortHeap(heap)
+                agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
 
+                while True:
+                    if not agentTurn: # computer turn
+                        computerMove()
+                        heap = sortHeap(heap)
+                        agentTurn = True
+                        continue
+
+                    computerWin = isItEnd()
+                    x = list(heap)
+                    aprob, h = policy_forward(x)
+                    play = 0
+                    for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
+                        actionRemoveIndex = int(i)/int(max_heap_size)
+                        actionRemoveNb = int(i)%int(max_heap_size)+1
+                        if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
+                            play = i
+
+                    if not computerWin:
+                        actionRemoveIndex = int(play)/int(max_heap_size)
+                        actionRemoveNb = int(play)%int(max_heap_size)+1
+                        heap[actionRemoveIndex] -= actionRemoveNb
+                        heap = sortHeap(heap)
+                        playerWin = isItEnd()
+                        agentTurn = False
+                    done = playerWin or computerWin
+                    if done:
+                        if playerWin:
+                            win_number += 1.0
+                        break;
+            testing_results.append(win_number)
+        computerWin = False
+        playerWin = False
+        reward_sum = 0
         if randomHeap:
             heap = defineRandomBoard()
         else:
@@ -307,3 +367,12 @@ while True:
 
     if reward != 0 and (episode_number % 1000 == 0) : # Nim has either +1 or -1 reward exactly when game ends.
         print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
+
+    if (episode_number == episode_max):
+        break;
+plt.plot(testing_index, testing_results)
+plt.title("Win rate")
+plt.xlabel("Run"); plt.ylabel("%")
+plt.axis([0, episode_max, 0, 105]); plt.grid(True)
+# plt.show
+plt.savefig('testing.pdf')

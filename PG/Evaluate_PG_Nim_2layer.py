@@ -12,8 +12,8 @@ from time import sleep
 # hyperparameters
 max_heap_nb = 4 # maximum number of heaps
 max_heap_size = 5   # maximum items in one heap
-H1 = 200 # number of hidden layer neurons # CHANGE
-H2 = 200 # number of hidden layer neurons # CHANGE
+H1 = 32 # number of hidden layer neurons # CHANGE
+H2 = 32 # number of hidden layer neurons # CHANGE
 batch_size = 10 # every how many episodes to do a param update?
 # learning_rate = 1e-4
 # gamma = 0.9 # discount factor for reward
@@ -21,12 +21,13 @@ batch_size = 10 # every how many episodes to do a param update?
 resume = False # resume from previous checkpoint?
 render = False
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-# epsilon = 0.4 # The opponent will play epsilon optimal
+# opp_epsilon = 0.4 # The opponent will play opp_epsilon optimal
 episodes_for_training = 10000
-learning_rate_tested = [0.01,0.5,0.9,1.0]
-decay_rate_tested = [0.01,0.5,0.99]
-gamma_tested = [0.01,0.25,0.5,0.75,0.99]
-epsilon_tested = [0.0,0.1,0.5,0.9,1.0]
+learning_rate_tested = np.linspace(0.0,1.0,11)
+decay_rate = 0.99
+gamma = 0.99
+opp_epsilon_tested = [0.0,0.33,0.66,1.0]
+epsilon_tested = np.linspace(0.0,1.0,11) # Percentage of move the agent will take randomly
 
 heap = []
 originalHeap = []
@@ -114,18 +115,30 @@ def userMove():
         userMove()
     if isItEnd(): print "YOU WIN"
 
-
-
 def computerMove():
-    if epsilon > random.uniform(0, 1): # random move
-        heap[np.argmax(heap)]-=random.randint(1,max(heap))
+    if opp_epsilon > random.uniform(0, 1): # random move
+        randomMove()
     else:
         if nimSum(heap) == 0: # optimal move
-            heap[np.argmax(heap)]-=random.randint(1,max(heap))
+            randomMove()
         else:
             heap[winningHeap()]^=nimSum(heap)
 
 
+
+# Returns the modified heap after a random play
+def randomMove():
+    global heap
+    if np.amax(heap) == 0:
+        return 0
+    while True:
+        play = random.randint(0,max_heap_nb*max_heap_size-1)
+        actionRemoveIndex = int(play)/int(max_heap_size)
+        actionRemoveNb = int(play)%int(max_heap_size)+1
+        if heap[actionRemoveIndex] >= actionRemoveNb:
+            heap[actionRemoveIndex] -= actionRemoveNb
+            heap = sortHeap(heap)
+            return play
 
 def isItEnd():
     return all(z == 0 for z in heap)
@@ -233,59 +246,59 @@ def getOptimalMovesFoundPerc():
 
 
 
-optMoveFound_gridSearch = np.zeros((len(learning_rate_tested),len(decay_rate_tested),len(gamma_tested),len(epsilon_tested)))
+optMoveFound_gridSearch = np.zeros((len(learning_rate_tested),len(epsilon_tested),len(opp_epsilon_tested)))
 
 for learning_rate_index in range(len(learning_rate_tested)):
-    for decay_rate_index in range(len(decay_rate_tested)):
-        for gamma_index in range(len(gamma_tested)):
-            for epsilon_index in range(len(epsilon_tested)):
-                gamma = gamma_tested[gamma_index]
-                decay_rate = decay_rate_tested[decay_rate_index]
-                learning_rate = learning_rate_tested[learning_rate_index]
-                epsilon = epsilon_tested[epsilon_index]
-                model = {}
-                model['W1'] = np.random.randn(H1,D) / np.sqrt(D) # "Xavier" initialization
-                model['W2'] = np.random.randn(H1,H2) / np.sqrt(H2) # "Xavier" initialization
-                model['W3'] = np.random.randn(H2,max_heap_nb*max_heap_size) / np.sqrt(H2)
+    for epsilon_index in range(len(epsilon_tested)):
+        for opp_epsilon_index in range(len(opp_epsilon_tested)):
+            epsilon = epsilon_tested[epsilon_index]
+            learning_rate = learning_rate_tested[learning_rate_index]
+            opp_epsilon = opp_epsilon_tested[opp_epsilon_index]
+            model = {}
+            model['W1'] = np.random.randn(H1,D) / np.sqrt(D) # "Xavier" initialization
+            model['W2'] = np.random.randn(H1,H2) / np.sqrt(H2) # "Xavier" initialization
+            model['W3'] = np.random.randn(H2,max_heap_nb*max_heap_size) / np.sqrt(H2)
 
 
-                print 'testing new values...'
-                print learning_rate,decay_rate,gamma,epsilon
-                grad_buffer = { k : np.zeros_like(v) for k,v in model.iteritems() } # update buffers that add up gradients over a batch
-                rmsprop_cache = { k : np.zeros_like(v) for k,v in model.iteritems() } # rmsprop memory
+            print 'testing new values...'
+            print learning_rate,epsilon,opp_epsilon
+            grad_buffer = { k : np.zeros_like(v) for k,v in model.iteritems() } # update buffers that add up gradients over a batch
+            rmsprop_cache = { k : np.zeros_like(v) for k,v in model.iteritems() } # rmsprop memory
 
-                agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
+            agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
 
-                xs,h1s,h2s,dlogps,drs = [],[],[],[],[]
-                running_reward = None
-                computerWin = False
-                playerWin = False
-                reward_sum = 0
-                episode_number = 0
+            xs,h1s,h2s,dlogps,drs = [],[],[],[],[]
+            running_reward = None
+            computerWin = False
+            playerWin = False
+            reward_sum = 0
+            episode_number = 0
 
-                while True:
-                    if not agentTurn: # computer turn
-                        computerMove()
-                        #   if max(heap) == 1:
-                        #     heap[heap.index(max(heap))]-= 1
-                        #   if max(heap) > 1:
-                        #     heap[heap.index(max(heap))]-=random.randint(1,max(heap)) # Change to total random play
-                        heap = sortHeap(heap)
-                        agentTurn = True
-                        continue
+            while True:
+                if not agentTurn: # computer turn
+                    computerMove()
+                    #   if max(heap) == 1:
+                    #     heap[heap.index(max(heap))]-= 1
+                    #   if max(heap) > 1:
+                    #     heap[heap.index(max(heap))]-=random.randint(1,max(heap)) # Change to total random play
+                    heap = sortHeap(heap)
+                    agentTurn = True
+                    continue
 
-                    if binary_input:
-                        x = heap_to_binary(heap)
-                    else:
-                        x = list(heap)
-                    reward = 0.0
-                    computerWin = isItEnd()
-                    aprob, h1, h2 = policy_forward(x)
-                    xs.append(x) # observation
-                    h1s.append(h1) # hidden state
-                    h2s.append(h2) # hidden state
-                    finish = False
+                if binary_input:
+                    x = heap_to_binary(heap)
+                else:
+                    x = list(heap)
+                reward = 0.0
+                computerWin = isItEnd()
+                aprob, h1, h2 = policy_forward(x)
+                xs.append(x) # observation
+                h1s.append(h1) # hidden state
+                h2s.append(h2) # hidden state
 
+                if epsilon > random.uniform(0, 1): # random move
+                    play = randomMove()
+                else:
                     play = 0
                     for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
                         actionRemoveIndex = int(i)/int(max_heap_size)
@@ -293,10 +306,6 @@ for learning_rate_index in range(len(learning_rate_tested)):
                         if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
                             play = i
 
-                    y = np.zeros(len(aprob))
-                    y[play] = 1.0
-
-                    dlogps.append(y - aprob) # grad that encourages the action that was taken to be taken (see http://cs231n.github.io/neural-networks-2/#losses if confused)
                     if not computerWin:
                         actionRemoveIndex = int(play)/int(max_heap_size)
                         actionRemoveNb = int(play)%int(max_heap_size)+1
@@ -305,81 +314,86 @@ for learning_rate_index in range(len(learning_rate_tested)):
                         playerWin = isItEnd()
                         agentTurn = False
 
-                    done = playerWin or computerWin
-                    if computerWin:
-                        reward = -1.0
-                    elif playerWin:
-                        reward = +1.0
+                y = np.zeros(len(aprob))
+                y[play] = 1.0
 
-                    drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+                dlogps.append(y - aprob) # grad that encourages the action that was taken to be taken (see http://cs231n.github.io/neural-networks-2/#losses if confused)
 
-                    reward_sum += reward
-                    if done: # an episode finished
-                        episode_number += 1
-                        computerWin = False
-                        playerWin = False
-                        # stack together all inputs, hidden states, action gradients, and rewards for this episode
-                        #epx = np.vstack(xs)
-                        #eph = np.vstack(hs)
-                        epx = np.vstack(xs)
-                        eph1 = np.vstack(h1s)
-                        eph2 = np.vstack(h2s)
-                        epdlogp = np.vstack(dlogps)
-                        epr = np.vstack(drs)
-                        xs,h1s,h2s,dlogps,drs = [],[],[],[],[] # reset array memory
-                        # compute the discounted reward backwards through time
-                        discounted_epr = discount_rewards(epr)
+                done = playerWin or computerWin
+                if computerWin:
+                    reward = -1.0
+                elif playerWin:
+                    reward = +1.0
 
-                        # standardize the rewards to be unit normal (helps control the gradient estimator variance)
-                        discounted_epr -= np.mean(discounted_epr)
-                        discounted_epr /= np.std(discounted_epr)
-                        epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
-                        grad = policy_backward(eph1,eph2,epdlogp)
+                drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
-                        for k in model: grad_buffer[k] += grad[k] # accumulate grad over batch
+                reward_sum += reward
+                if done: # an episode finished
+                    episode_number += 1
+                    computerWin = False
+                    playerWin = False
+                    # stack together all inputs, hidden states, action gradients, and rewards for this episode
+                    #epx = np.vstack(xs)
+                    #eph = np.vstack(hs)
+                    epx = np.vstack(xs)
+                    eph1 = np.vstack(h1s)
+                    eph2 = np.vstack(h2s)
+                    epdlogp = np.vstack(dlogps)
+                    epr = np.vstack(drs)
+                    xs,h1s,h2s,dlogps,drs = [],[],[],[],[] # reset array memory
+                    # compute the discounted reward backwards through time
+                    discounted_epr = discount_rewards(epr)
 
-                        # perform rmsprop parameter update every batch_size episodes
-                        if episode_number % batch_size == 0:
-                            for k,v in model.iteritems():
-                                g = grad_buffer[k] # gradient
-                                rmsprop_cache[k] = decay_rate * rmsprop_cache[k] + (1 - decay_rate) * g**2
-                                model[k] += learning_rate * g / (np.sqrt(rmsprop_cache[k]) + 1e-5)
-                                grad_buffer[k] = np.zeros_like(v) # reset batch gradient buffer
+                    # standardize the rewards to be unit normal (helps control the gradient estimator variance)
+                    discounted_epr -= np.mean(discounted_epr)
+                    discounted_epr /= np.std(discounted_epr)
+                    epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
+                    grad = policy_backward(eph1,eph2,epdlogp)
 
-                        # boring book-keeping
-                        running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
+                    for k in model: grad_buffer[k] += grad[k] # accumulate grad over batch
 
-                        reward_sum = 0
+                    # perform rmsprop parameter update every batch_size episodes
+                    if episode_number % batch_size == 0:
+                        for k,v in model.iteritems():
+                            g = grad_buffer[k] # gradient
+                            rmsprop_cache[k] = decay_rate * rmsprop_cache[k] + (1 - decay_rate) * g**2
+                            model[k] += learning_rate * g / (np.sqrt(rmsprop_cache[k]) + 1e-5)
+                            grad_buffer[k] = np.zeros_like(v) # reset batch gradient buffer
 
-                        if randomHeap:
-                            heap = defineRandomBoard()
-                        else:
-                            heap = list(originalHeap)
-                        heap = sortHeap(heap)
-                        agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
+                    # boring book-keeping
+                    running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
 
-                        if episode_number % episodes_for_training == 0:
-                            break;
-                    #############  Finish training the model with parameter set
-                optMoveFound_gridSearch[learning_rate_index,decay_rate_index, gamma_index, epsilon_index] = getOptimalMovesFoundPerc()
-                print optMoveFound_gridSearch[learning_rate_index,decay_rate_index,gamma_index,epsilon_index]
-                print '\n'
+                    reward_sum = 0
 
-pickle.dump(optMoveFound_gridSearch, open('grid_search.p', 'wb'))
+                    if randomHeap:
+                        heap = defineRandomBoard()
+                    else:
+                        heap = list(originalHeap)
+                    heap = sortHeap(heap)
+                    agentTurn = bool(random.getrandbits(1)) # Bool which represents player's turn. 1 is agent, 0 is computer opponent
 
-for i in range(len(decay_rate_tested)):
-    for j in range(len(epsilon_tested)):
-        plt.figure()
-        plt.imshow(optMoveFound_gridSearch[:,i,:,j].T, origin='lower', extent=(learning_rate_tested[0], learning_rate_tested[-1], gamma_tested[0], gamma_tested[-1]), \
-                   vmin=0., vmax=1., interpolation='none', cmap='hot')
-        plt.colorbar()
-        plt.xlabel("Learning rate"); plt.ylabel("Gamma")
-        plt.title("Opponent: optimal at {:.1f}%, with decay rate at {:1f}".format((1.-epsilon_tested[j])*100. , decay_rate_tested[i]))
-        # plt.show()
-plt.show()
+                    if episode_number % episodes_for_training == 0:
+                        break;
+                #############  Finish training the model with parameter set
+            optMoveFound_gridSearch[learning_rate_index, epsilon_index, opp_epsilon_index] = getOptimalMovesFoundPerc()
+            print optMoveFound_gridSearch[learning_rate_index,epsilon_index,opp_epsilon_index]
+            print '\n'
+
+pickle.dump(optMoveFound_gridSearch, open('grid_search_2layers.p', 'wb'))
+
+for j in range(len(opp_epsilon_tested)):
+    plt.figure()
+    plt.imshow(optMoveFound_gridSearch[:,:,j].T, origin='lower', extent=(learning_rate_tested[0], learning_rate_tested[-1], epsilon_tested[0], epsilon_tested[-1]), \
+               vmin=0., vmax=1., interpolation='none', cmap='hot')
+    cbar = plt.colorbar()
+    cbar.set_label('Optimality measure', rotation=90)
+
+    plt.xlabel("Learning rate"); plt.ylabel("Epsilon (exploration term)")
+    plt.title("Opponent optimal at {:.1f}%".format((1.-opp_epsilon_tested[j])*100.))
+    plt.savefig('2_layer_opp_epsilon_'+str(opp_epsilon_tested[j])+'.pdf')
+
 index_best = np.unravel_index(np.argmax(optMoveFound_gridSearch), optMoveFound_gridSearch.shape)
 print "The optimal parameters are found to be:"
 print "learning rate = {}".format(learning_rate_tested[index_best[0]])
-print "decay rate = {}".format(decay_rate_tested[index_best[1]])
-print "gamma = {}".format(gamma_tested[index_best[2]])
-print "learning rate = {}".format(learning_rate_tested[index_best[3]])
+print "epsilon = {}".format(epsilon_tested[index_best[1]])
+print "opponent epsilon = {}".format(learning_rate_tested[index_best[2]])

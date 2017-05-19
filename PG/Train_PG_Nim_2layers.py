@@ -20,7 +20,8 @@ decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
 render = False
 binary_input = False # True if we want to give the heaps as inputs represented in binary_input
-epsilon = 0.4 # The opponent will play epsilon optimal
+opp_epsilon = 0.4 # The opponent will play opp_epsilon optimal
+epsilon = 0.1 # Percentage of move the agent will take randomly
 
 heap = []
 originalHeap = []
@@ -118,16 +119,32 @@ def userMove():
     if isItEnd(): print "YOU WIN"
 
 
-
 def computerMove():
-    if epsilon > random.uniform(0, 1): # random move
-        heap[np.argmax(heap)]-=random.randint(1,max(heap))
+    if opp_epsilon > random.uniform(0, 1): # random move
+        randomMove()
     else:
         if nimSum() == 0: # optimal move
-            heap[np.argmax(heap)]-=random.randint(1,max(heap))
+            randomMove()
         else:
             heap[winningHeap()]^=nimSum()
 
+
+
+
+
+# Returns the modified heap after a random play
+def randomMove():
+    global heap
+    if np.amax(heap) == 0:
+        return 0
+    while True:
+        play = random.randint(0,max_heap_nb*max_heap_size-1)
+        actionRemoveIndex = int(play)/int(max_heap_size)
+        actionRemoveNb = int(play)%int(max_heap_size)+1
+        if heap[actionRemoveIndex] >= actionRemoveNb:
+            heap[actionRemoveIndex] -= actionRemoveNb
+            heap = sortHeap(heap)
+            return play
 
 
 def isItEnd():
@@ -236,26 +253,28 @@ while True:
     xs.append(x) # observation
     h1s.append(h1) # hidden state
     h2s.append(h2) # hidden state
-    finish = False
 
-    play = 0
-    for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
-        actionRemoveIndex = int(i)/int(max_heap_size)
-        actionRemoveNb = int(i)%int(max_heap_size)+1
-        if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
-            play = i
+    if epsilon > random.uniform(0, 1): # random move
+        play = randomMove()
+    else:
+        play = 0
+        for i in range(1,len(aprob)):  # Search biggest value in aprob for possible action
+            actionRemoveIndex = int(i)/int(max_heap_size)
+            actionRemoveNb = int(i)%int(max_heap_size)+1
+            if (heap[actionRemoveIndex] >= actionRemoveNb) and (aprob[i] > aprob[play]):
+                play = i
 
+        if not computerWin:
+            actionRemoveIndex = int(play)/int(max_heap_size)
+            actionRemoveNb = int(play)%int(max_heap_size)+1
+            heap[actionRemoveIndex] -= actionRemoveNb
+            heap = sortHeap(heap)
+            playerWin = isItEnd()
+            agentTurn = False
     y = np.zeros(len(aprob))
     y[play] = 1.0
 
     dlogps.append(y - aprob) # grad that encourages the action that was taken to be taken (see http://cs231n.github.io/neural-networks-2/#losses if confused)
-    if not computerWin:
-        actionRemoveIndex = int(play)/int(max_heap_size)
-        actionRemoveNb = int(play)%int(max_heap_size)+1
-        heap[actionRemoveIndex] -= actionRemoveNb
-        heap = sortHeap(heap)
-        playerWin = isItEnd()
-        agentTurn = False
 
     done = playerWin or computerWin
     if computerWin:
