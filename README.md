@@ -3,10 +3,10 @@
 ## Temporal-Difference Learning
 
 
+## Deep Reinforcement Learning
 Results for Deep Q-Learning and Deep Policy Gradient are not as convincing as Q-Learning. However, you can run our implementations by following the instructions below:
 
 ##Running Deep Q-Learning##
-
 
 a) Make sure you have pytorch installed. You can go to http://pytorch.org/ for instructions. The installation command is specific to your machine!
 
