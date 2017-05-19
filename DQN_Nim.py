@@ -31,7 +31,7 @@ steps_done = 0
 maxBits = len(bin(heapMax))
 
 #How random the AI we train against is
-epsilon_rand = np.linspace(0,1,2)
+epsilon_rand = np.linspace(0,1,4)
 
 #Network learning parameters, also look at DQN construction
 num_episodes = 10000
@@ -43,8 +43,8 @@ USE_CUDA = False#torch.cuda.is_available()
 #Reinforcement Learning parameters
 GAMMA = 1.0
 
-LEARNING_RATE = np.linspace(0,1,2)
-STATIC_EPS = np.linspace(0,1,2)
+LEARNING_RATE = np.linspace(0,1,11)
+STATIC_EPS = np.linspace(0,1,11)
 
 #EPS_START = 1.0
 #EPS_END = 0.01
@@ -154,10 +154,9 @@ class Variable(autograd.Variable):
         super(Variable, self).__init__(data, *args, **kwargs)
 
 
-def getMaxValidAction():
-    global heap
-    heap = list(np.sort(heap))
-    QSA_for_actions = model(Variable(torch.FloatTensor(heap), volatile=True)).data.cpu()
+def getMaxValidAction(curHeap):
+    curHeap = list(np.sort(curHeap))
+    QSA_for_actions = model(Variable(torch.FloatTensor(curHeap), volatile=True)).data.cpu()
     curMax = -sys.maxint
     curActionIndex = -1
 
@@ -165,7 +164,7 @@ def getMaxValidAction():
     for qsa in QSA_for_actions[0]:
         binNum = index/heapMax
         numPick = (index%heapMax)+1
-        if qsa > curMax and heap[binNum] >= numPick:
+        if qsa > curMax and curHeap[binNum] >= numPick:
             curActionIndex = index
             curMax = qsa
         index += 1
@@ -173,6 +172,7 @@ def getMaxValidAction():
 
 #Actions are defined as bin*heapMax+numPickedUp
 def select_action(greedy_eps):
+    global heap
     sample = random.random()
         #eps_threshold = EPS_END + (EPS_START - EPS_END) * \
     #    math.exp(-1. * steps_done / EPS_DECAY)
@@ -180,7 +180,7 @@ def select_action(greedy_eps):
     eps_threshold = greedy_eps
     #exploration vs exploitation
     if sample > eps_threshold:
-        return getMaxValidAction()
+        return getMaxValidAction(heap)
     else:
         #choose random valid heap and num
         nonZeroHeaps = []
@@ -272,63 +272,35 @@ def test(ai_eps, lr, greedy_eps):
 
     return win_count/float(num_eps), nimsum_moves/float(total_moves)
 
-def getFScore(model):
-    totalMovesForPrecision = 0;
-    precisionCount = 0;
-    recallCount = 0;
-    totalPossibleNimSumMoves = 0;
+
+def getOptimalMovePercentage(model):
+    nimSumMovePossible = 0;
+    nimSumMove = 0;
     for h0 in range(0, heapMax+1):
         for h1 in range(h0, heapMax+1):
             for h2 in range (h1, heapMax+1):
                 for h3 in range (h2, heapMax+1):
                     curHeap = [h0, h1, h2, h3];
-                    if (sum(curHeap) == 0):
+                    if (sum(curHeap) == 0 or nimSum(curHeap) == 0):
                         continue
-                    heapTest = curHeap[:]
+                    nimSumMovePossible += 1;
                     #Get q function values for state
-                    QSA_for_actions = model(Variable(torch.FloatTensor(heapTest), volatile=True)).data.cpu()
+                    QSA_for_actions = model(Variable(torch.FloatTensor(curHeap), volatile=True)).data.cpu()
 
-                    #Get precision and recall counts counts
-                    index = 0
-                    for qsa in QSA_for_actions[0]:
-                        heapTest = curHeap[:]
-                        binNum = index/heapMax
-                        numPick = (index%heapMax)+1
-                        if (heapTest[binNum] >= numPick):
-                            heapTest[binNum] -= numPick
-                            if (qsa >= 9.0):
-                                totalMovesForPrecision += 1
-                                if (nimSum(heapTest)):
-                                    precisionCount += 1;
-                            if (nimSum(heapTest) == 0):
-                                totalPossibleNimSumMoves+=1
-                                #also a move chosen by the model?
-                                if (qsa > 9.0):
-                                    recallCount += 1
-                        index += 1
-    
-    if (totalMovesForPrecision == 0):
-        precision = 0
-    else:
-        precision = float(precisionCount)/totalMovesForPrecision
+                    index = getMaxValidAction(curHeap)
+                    binNum = index/heapMax
+                    numPick = (index%heapMax)+1
+                    curHeap[binNum] -= numPick
+                    if (nimSum(curHeap) == 0):
+                        nimSumMove += 1;
 
-    if (totalPossibleNimSumMoves == 0):
-        recall = 0
-    else:
-        recall = float(recallCount)/totalPossibleNimSumMoves
-
-    if recall+precision == 0:
-        fscore = 0;
-    else:
-        fscore = 2*precision*recall/(precision+recall)
-
-    return precision, recall, fscore
+    return float(nimSumMove)/nimSumMovePossible;
 
 #################
 # Training loop #
 #################
-FScoreArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
-WinArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
+#FScoreArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
+#WinArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
 OptimalMoveArray = np.zeros((len(epsilon_rand), len(LEARNING_RATE), len(STATIC_EPS)))
 
 ai_eps_ind = -1
@@ -379,14 +351,14 @@ for ai_eps in epsilon_rand:
                     if done:
                         break
 
-            winP, opMoveP = test(ai_eps, lr, 1.0)
-            precision, recall, fscore = getFScore(model)
-            print ["FScore:", fscore, "Precision:", precision, "Recall:", recall, "Win Percent:", winP, "Optimal Move Percent:", opMoveP]
-            FScoreArray[ai_eps_ind, lr_ind, greedy_eps_ind] = fscore;
-            WinArray[ai_eps_ind, lr_ind, greedy_eps_ind] = winP;
+            #winP, opMoveP = test(ai_eps, lr, 1.0)
+            opMoveP = getOptimalMovePercentage(model)
+            print ["Optimal Move Percent:", opMoveP]
+            #FScoreArray[ai_eps_ind, lr_ind, greedy_eps_ind] = fscore;
+            #WinArray[ai_eps_ind, lr_ind, greedy_eps_ind] = winP;
             OptimalMoveArray[ai_eps_ind, lr_ind, greedy_eps_ind] = opMoveP;
             sys.stdout.flush()
 
-np.save('./grid_fscores', FScoreArray)
-np.save('./grid_win', WinArray)
+#np.save('./grid_fscores', FScoreArray)
+#np.save('./grid_win', WinArray)
 np.save('./grid_optimal', OptimalMoveArray)
